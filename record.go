@@ -26,6 +26,15 @@ type SecurityParameters struct {
 }
 
 type PRFAlgorithm interface{}
+
+type CipherType uint8
+
+var (
+	STREAM CipherType = 1
+	BLOCK  CipherType = 2
+	AEAD   CipherType = 3
+)
+
 type BulkCipherAlgorithm interface{}
 type MACAlgorithm interface{}
 
@@ -99,9 +108,9 @@ type TLSCiphertext struct {
 	fragment []byte //TLSCiphertext.length MUST NOT exceed 2^14 + 2048.
 }
 
-type CipherType interface {
+type Ciphered interface {
 	Marshal() []byte
-	UnMarshal([]byte)
+	UnMarshal([]byte, SecurityParameters) Ciphered
 }
 
 type GenericStreamCipher struct {
@@ -122,11 +131,17 @@ func (c GenericStreamCipher) Marshal() []byte {
 	return ret
 }
 
+func (c GenericStreamCipher) UnMarshal(fragment []byte, params SecurityParameters) GenericStreamCipher {
+	c.content = fragment[:len(fragment)-int(params.mac_length)]
+	c.MAC = fragment[len(fragment)-int(params.mac_length):]
+	return c
+}
+
 type GenericBlockCipher struct {
 	IV             []byte //SecurityParameters.record_iv_length
 	content        []byte //TLSCompressed.length
 	MAC            []byte //SecurityParameters.mac_length
-	padding        uint8  //GenericBlockCipher.padding_length
+	padding        []byte //GenericBlockCipher.padding_length
 	padding_length uint8
 }
 
@@ -135,8 +150,18 @@ func (c GenericBlockCipher) Marshal() []byte {
 	ret = append(ret, c.IV...)
 	ret = append(ret, c.content...)
 	ret = append(ret, c.MAC...)
-	ret = append(ret, c.padding, c.padding_length)
+	ret = append(ret, c.padding...)
+	ret = append(ret, c.padding_length)
 	return ret
+}
+
+func (c GenericBlockCipher) UnMarshal(fragment []byte, params SecurityParameters) GenericBlockCipher {
+	c.IV = fragment[:params.record_iv_length]
+	c.padding_length = fragment[len(fragment)-1]
+	c.padding = fragment[len(fragment)-1-int(c.padding_length) : len(fragment)-1]
+	c.MAC = fragment[len(fragment)-1-int(c.padding_length)-int(params.mac_length) : len(fragment)-1-int(c.padding_length)]
+	c.content = fragment[params.record_iv_length : len(fragment)-1-int(c.padding_length)-int(params.mac_length)]
+	return c
 }
 
 type GenericAEADCipher struct {
@@ -149,4 +174,10 @@ func (c GenericAEADCipher) Marshal() []byte {
 	ret = append(ret, c.nonce_explicit...)
 	ret = append(ret, c.content...)
 	return ret
+}
+
+func (c GenericAEADCipher) UnMarshal(fragment []byte, params SecurityParameters) GenericAEADCipher {
+	c.nonce_explicit = fragment[:params.record_iv_length]
+	c.content = fragment[params.record_iv_length:]
+	return c
 }

@@ -34,6 +34,7 @@ func (s *ToylsSuite) TestConnHandleCipherText(c *C) {
 	}
 	conn.params = SecurityParameters{}
 	conn.params.mac_key_length = 0
+	conn.params.cipher_type = STREAM
 	compressed, _ := conn.handleCipherText(cipherText)
 
 	c.Assert(compressed.contentType, Equals, HANDSHAKE)

@@ -30,10 +30,12 @@ func (c *Conn) handleFragment(in io.Reader) (TLSCiphertext, error) {
 }
 
 func (c *Conn) handleCipherText(cipherText TLSCiphertext) (TLSCompressed, error) {
+	//TODO: MAC.verify(conn.state.mac_key,cipherText.fragment[:])
 	compressed := TLSCompressed{}
 	compressed.contentType = cipherText.contentType
 	compressed.version = cipherText.version
 	compressed.length = uint16(len(cipherText.fragment)) - uint16(c.params.mac_length)
+	//TODO: This is not correct when using Block and AEAD ciphers
 	compressed.fragment = make([]byte, compressed.length)
 	copy(compressed.fragment, cipherText.fragment)
 	return compressed, nil

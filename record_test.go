@@ -13,7 +13,7 @@ type ToylsSuite struct{}
 
 var _ = Suite(&ToylsSuite{})
 
-func (s *ToylsSuite) TestConnHandleCipherText(c *C) {
+func (s *ToylsSuite) TestConnHandleFragment(c *C) {
 	conn := Conn{}
 	in := &mockConnIOReaderWriter{read: []byte{22, 0x03, 0x01, 0x00, 0x01, 0x00}}
 	cipherText, _ := conn.handleFragment(in)
@@ -24,7 +24,7 @@ func (s *ToylsSuite) TestConnHandleCipherText(c *C) {
 	c.Assert(cipherText.fragment, DeepEquals, []byte{0x00})
 }
 
-func (s *ToylsSuite) TestConnHandleCompressed(c *C) {
+func (s *ToylsSuite) TestConnHandleCipherText(c *C) {
 	conn := Conn{}
 	cipherText := TLSCiphertext{
 		contentType: HANDSHAKE,
@@ -32,6 +32,8 @@ func (s *ToylsSuite) TestConnHandleCompressed(c *C) {
 		length:      2,
 		fragment:    []byte{0x01, 0x02},
 	}
+	conn.params = SecurityParameters{}
+	conn.params.mac_key_length = 0
 	compressed, _ := conn.handleCipherText(cipherText)
 
 	c.Assert(compressed.contentType, Equals, HANDSHAKE)
@@ -40,7 +42,7 @@ func (s *ToylsSuite) TestConnHandleCompressed(c *C) {
 	c.Assert(compressed.fragment, DeepEquals, []byte{0x01, 0x02})
 }
 
-func (s *ToylsSuite) TestConnHandlePlainText(c *C) {
+func (s *ToylsSuite) TestConnHandleCompressed(c *C) {
 	conn := Conn{}
 	compressed := TLSCompressed{
 		contentType: HANDSHAKE,

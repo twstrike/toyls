@@ -26,15 +26,7 @@ type SecurityParameters struct {
 }
 
 type PRFAlgorithm interface{}
-
-type CipherType uint8
-
-var (
-	STREAM CipherType = 1
-	BLOCK  CipherType = 2
-	AEAD   CipherType = 3
-)
-
+type CipherType interface{}
 type BulkCipherAlgorithm interface{}
 type MACAlgorithm interface{}
 

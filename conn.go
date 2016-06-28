@@ -1,6 +1,7 @@
 package toytls
 
 import (
+	"crypto/cipher"
 	"encoding/binary"
 	"io"
 )
@@ -12,6 +13,9 @@ type Conn struct {
 
 func (c *Conn) receive(in io.Reader) TLSPlaintext {
 	cipherText, _ := c.handleFragment(in)
+	switch cipherText.contentType {
+
+	}
 	compressed, _ := c.handleCipherText(cipherText)
 	plaintext, _ := c.handleCompressed(compressed)
 	return plaintext
@@ -34,16 +38,16 @@ func (c *Conn) handleCipherText(cipherText TLSCiphertext) (TLSCompressed, error)
 	compressed.contentType = cipherText.contentType
 	compressed.version = cipherText.version
 	//TODO: MAC.verify(conn.state.mac_key,cipherText.fragment[:])
-	switch c.params.cipher_type {
-	case STREAM:
+	switch c.params.cipher_type.(type) {
+	case cipher.Stream:
 		c := GenericStreamCipher{}.UnMarshal(cipherText.fragment, c.params)
 		compressed.length = uint16(len(c.content))
 		compressed.fragment = c.content
-	case BLOCK:
+	case cipher.Block:
 		c := GenericBlockCipher{}.UnMarshal(cipherText.fragment, c.params)
 		compressed.length = uint16(len(c.content))
 		compressed.fragment = c.content
-	case AEAD:
+	case cipher.AEAD:
 		c := GenericAEADCipher{}.UnMarshal(cipherText.fragment, c.params)
 		compressed.length = uint16(len(c.content))
 		compressed.fragment = c.content

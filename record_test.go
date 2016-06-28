@@ -29,18 +29,25 @@ func (s *ToylsSuite) TestConnHandleCipherText(c *C) {
 	cipherText := TLSCiphertext{
 		contentType: HANDSHAKE,
 		version:     VersionTLS12,
-		length:      2,
-		fragment:    []byte{0x01, 0x02},
+		length:      3,
+		fragment:    []byte{0x01, 0x02, 0x03},
 	}
 	conn.params = SecurityParameters{}
-	conn.params.mac_key_length = 0
-	conn.params.cipher_type = STREAM
+	conn.params.mac_length = 1
+	conn.params.cipher_type = mockStreamCipher{}
+
 	compressed, _ := conn.handleCipherText(cipherText)
 
 	c.Assert(compressed.contentType, Equals, HANDSHAKE)
 	c.Assert(compressed.version, Equals, VersionTLS12)
 	c.Assert(compressed.length, Equals, uint16(2))
 	c.Assert(compressed.fragment, DeepEquals, []byte{0x01, 0x02})
+}
+
+type mockStreamCipher struct{}
+
+func (mockStreamCipher) XORKeyStream(dst, src []byte) {
+	return
 }
 
 func (s *ToylsSuite) TestConnHandleCompressed(c *C) {

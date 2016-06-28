@@ -1,4 +1,4 @@
-package toytls
+package toyls
 
 type ConnectionEnd uint8
 

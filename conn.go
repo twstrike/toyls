@@ -1,4 +1,4 @@
-package toytls
+package toyls
 
 import (
 	"crypto/cipher"

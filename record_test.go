@@ -1,19 +1,12 @@
-package toytls
+package toyls
 
 import (
 	"io"
-	"testing"
 
 	. "gopkg.in/check.v1"
 )
 
-func Test(t *testing.T) { TestingT(t) }
-
-type ToylsSuite struct{}
-
-var _ = Suite(&ToylsSuite{})
-
-func (s *ToylsSuite) TestConnHandleFragment(c *C) {
+func (s *ToySuite) TestConnHandleFragment(c *C) {
 	conn := Conn{}
 	in := &mockConnIOReaderWriter{read: []byte{22, 0x03, 0x01, 0x00, 0x01, 0x00}}
 	cipherText, _ := conn.handleFragment(in)
@@ -24,7 +17,7 @@ func (s *ToylsSuite) TestConnHandleFragment(c *C) {
 	c.Assert(cipherText.fragment, DeepEquals, []byte{0x00})
 }
 
-func (s *ToylsSuite) TestConnHandleCipherText(c *C) {
+func (s *ToySuite) TestConnHandleCipherText(c *C) {
 	conn := Conn{}
 	cipherText := TLSCiphertext{
 		contentType: HANDSHAKE,
@@ -50,7 +43,7 @@ func (mockStreamCipher) XORKeyStream(dst, src []byte) {
 	return
 }
 
-func (s *ToylsSuite) TestConnHandleCompressed(c *C) {
+func (s *ToySuite) TestConnHandleCompressed(c *C) {
 	conn := Conn{}
 	compressed := TLSCompressed{
 		contentType: HANDSHAKE,

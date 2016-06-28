@@ -1,4 +1,4 @@
-package toytls
+package toyls
 
 // See 5246, section 7.  The TLS Handshaking Protocols
 
@@ -24,10 +24,16 @@ const (
 	finishedType                         = 20
 )
 
-type handshake struct {
+type handshakeMessage struct {
 	msgType handshakeType
-	length  uint32      //This should be uint24, and we should keep track of overflows
-	body    interface{} // depends on msgType
+
+	//This should be uint24, and we should keep track of overflows
+	//Is this always 3 + len(body)?
+	length uint32
+
+	// It depends on msgType
+	// should it be a []byte?
+	body interface{}
 }
 
 type protocolVersion struct {
@@ -75,42 +81,3 @@ type serverHelloDoneBody struct{}
 type certificateVerifyBody struct{}
 type clientKeyExchangeBody struct{}
 type finishedBody struct{}
-
-// See 7.4.1.  Hello Messages
-func beginSession() *session {
-	//TODO
-	//record layer's connection state encryption, hash, and
-	//   compression algorithms are initialized to null
-
-	return nil
-}
-
-//XXX I guess this should be different for client and server
-func receiveHandshakeMessage(m interface{}) interface{} {
-	//TODO
-	switch m.(type) {
-	default:
-		//unexpected
-	case helloRequestBody:
-		// See: 7.4.1.1.  Hello Request
-		//Ignore if the client is currently negotiating a session
-		//MAY be ignored if it does not wish to renegotiate a session, or the
-		//      client may, if it wishes, respond with a no_renegotiation alert.
-		//Send ClientHello
-		return &clientHelloBody{}
-	case clientHelloBody:
-		// See: 7.4.1.3.  Server Hello
-		//Send ServerHello
-		return &serverHelloBody{}
-
-		//If the agreed-upon key exchange method uses certificates for authentication
-		//MUST send this immediatelly
-		return &certificateBody{}
-	case certificateBody:
-		// See: 7.4.3.  Server Key Exchange Message
-		//
-		return &serverKeyExchangeBody{}
-	}
-
-	return nil
-}

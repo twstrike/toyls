@@ -38,7 +38,7 @@ func (c *Conn) handleCipherText(cipherText TLSCiphertext) (TLSCompressed, error)
 	compressed.contentType = cipherText.contentType
 	compressed.version = cipherText.version
 	//TODO: MAC.verify(conn.state.mac_key,cipherText.fragment[:])
-	switch c.params.cipher_type.(type) {
+	switch c.params.cipher.(type) {
 	case cipher.Stream:
 		c := GenericStreamCipher{}.UnMarshal(cipherText.fragment, c.params)
 		compressed.length = uint16(len(c.content))

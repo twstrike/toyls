@@ -11,7 +11,7 @@ type SecurityParameters struct {
 	entity                ConnectionEnd
 	prf_algorithm         PRFAlgorithm
 	bulk_cipher_algorithm BulkCipherAlgorithm
-	cipher_type           CipherType
+	cipher                CipherType
 	enc_key_length        uint8
 	block_length          uint8
 	fixed_iv_length       uint8

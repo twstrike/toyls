@@ -34,7 +34,7 @@ func (s *ToylsSuite) TestConnHandleCipherText(c *C) {
 	}
 	conn.params = SecurityParameters{}
 	conn.params.mac_length = 1
-	conn.params.cipher_type = mockStreamCipher{}
+	conn.params.cipher = mockStreamCipher{}
 
 	compressed, _ := conn.handleCipherText(cipherText)
 

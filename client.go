@@ -16,6 +16,23 @@ func (c *handshakeClient) sendClientHello() []byte {
 }
 
 func deserializeClientHello(h []byte) (*clientHelloBody, error) {
+	/*
+		This is the format (see section "7.4.1.2. Client Hello"):
+
+		struct {
+			ProtocolVersion client_version;
+			Random random;
+			SessionID session_id;
+			CipherSuite cipher_suites<2..2^16-2>;
+			CompressionMethod compression_methods<1..2^8-1>;
+			select (extensions_present) {
+			case false:
+				struct {};
+			case true:
+				Extension extensions<0..2^16-1>;
+			};
+		} ClientHello;
+	*/
 	return nil, nil
 }
 

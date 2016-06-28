@@ -40,7 +40,7 @@ type protocolVersion struct {
 	major, minor uint8
 }
 
-type cypherSuite [2]uint8
+type cipherSuite [2]uint8
 
 type random struct {
 	gmtUnixTime uint32
@@ -53,7 +53,7 @@ type clientHelloBody struct {
 	clientVersion protocolVersion
 	random
 	sessionID          []byte        //Min: 0, Max: 32
-	cipherSuites       []cypherSuite //Min: 2, Max: 2^16-2
+	cipherSuites       []cipherSuite //Min: 2, Max: 2^16-2
 	compressionMethods []uint8       //Min: 1, Max: 2^8-1
 	//extensions
 }
@@ -62,7 +62,7 @@ type serverHelloBody struct {
 	serverVersion protocolVersion
 	random
 	sessionID []byte //Min: 0, Max: 32
-	cypherSuite
+	cipherSuite
 	compressionMethod uint8
 	//extensions
 }

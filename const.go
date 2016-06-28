@@ -1,4 +1,4 @@
-package tls
+package toytls
 
 const (
 	TLS_RSA_WITH_AES_128_CBC_SHA       uint16 = 0x002f

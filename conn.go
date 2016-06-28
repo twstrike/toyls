@@ -1,4 +1,4 @@
-package tls
+package toytls
 
 import (
 	"encoding/binary"

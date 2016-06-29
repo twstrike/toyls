@@ -70,10 +70,19 @@ type certificateBody struct {
 //XXX This is too iffy, depending on the KeyExchangeAlgorithm.
 //We should probably use a different body for each key exchange algo, or
 //implement only one.
+//XXX We are going to implement only RSA key exchange, so this is not necessary (for now)
+//See: "7.4.3.  Server Key Exchange Message" to understand why we dont neeed this now.
 type serverKeyExchangeBody struct{}
 
+//XXX We believe this is not mandatory for TLS_RSA_WITH_AES_128_CBC_SHA
 type certificateRequestBody struct{}
+
+//This is empty. No need to serialize/deserialize.
+//XXX Remove-me
 type serverHelloDoneBody struct{}
+
+//XXX Not necessary until our server sends certificateRequest
 type certificateVerifyBody struct{}
+
 type clientKeyExchangeBody struct{}
 type finishedBody struct{}

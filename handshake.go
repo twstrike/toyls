@@ -110,4 +110,7 @@ type encryptedPreMasterSecretBody struct {
 	preMasterSecret []byte // Size is <0..2^16-1>
 }
 
-type finishedBody struct{}
+type finishedBody struct {
+	//Size: verify_data_length OR 12 (if not specified by the cipher suite)
+	verify_data []byte
+}

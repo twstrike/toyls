@@ -35,8 +35,26 @@ func serializeServerHello(h *serverHelloBody) ([]byte, error) {
 	return hello, nil
 }
 
-func deserializeCertificate() {
-	//TODO
+func deserializeCertificate(c []byte) (*certificateBody, error) {
+	certificateBody := &certificateBody{
+		certificateList: make([][]byte, 0, 10),
+	}
+
+	certListLen, c := extractUint24(c)
+	certLen := uint32(0)
+	vectorLenSize := uint32(3)
+
+	for i := uint32(0); i < certListLen; i += certLen + vectorLenSize {
+		certLen, c = extractUint24(c)
+		certificate := make([]byte, certLen)
+		copy(certificate[:], c[:certLen])
+		c = c[certLen:]
+
+		certificateBody.certificateList = append(certificateBody.certificateList,
+			certificate)
+	}
+
+	return certificateBody, nil
 }
 
 func serializeCertificate(c *certificateBody) ([]byte, error) {

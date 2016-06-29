@@ -12,6 +12,16 @@ func (s *ToySuite) TestExtractUint16(c *C) {
 	c.Assert(p, DeepEquals, data[2:])
 }
 
+func (s *ToySuite) TestExtractUint24(c *C) {
+	data := []byte{
+		0x12, 0x34, 0x56, 0x78,
+	}
+
+	n, p := extractUint24(data)
+	c.Assert(n, Equals, uint32(0x123456))
+	c.Assert(p, DeepEquals, data[3:])
+}
+
 func (s *ToySuite) TestExtractUint32(c *C) {
 	data := []byte{
 		0x12, 0x34, 0x56, 0x78, 0x90,

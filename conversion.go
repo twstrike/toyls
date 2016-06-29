@@ -19,6 +19,15 @@ func extractUint16(src []byte) (n uint16, p []byte) {
 	return
 }
 
+func extractUint24(src []byte) (n uint32, p []byte) {
+	n |= uint32(src[0]) << 16
+	n |= uint32(src[1]) << 8
+	n |= uint32(src[2])
+	p = src[3:]
+
+	return
+}
+
 func extractUint32(src []byte) (n uint32, p []byte) {
 	n |= uint32(src[0]) << 24
 	n |= uint32(src[1]) << 16

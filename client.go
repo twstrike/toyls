@@ -17,11 +17,8 @@ func (c *handshakeClient) sendClientHello() []byte {
 
 func deserializeClientHello(h []byte) (*clientHelloBody, error) {
 	hello := &clientHelloBody{}
-
-	hello.clientVersion.major = h[0]
-	hello.clientVersion.minor = h[1]
-
-	hello.random.gmtUnixTime, h = extractUint32(h[2:])
+	hello.clientVersion, h = extractProtocolVersion(h)
+	hello.random.gmtUnixTime, h = extractUint32(h)
 	copy(hello.random.randomBytes[:], h[:28])
 
 	sessionLen := int(h[28])

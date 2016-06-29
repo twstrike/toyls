@@ -24,6 +24,12 @@ const (
 	cipherSuiteLen = 2
 )
 
+func extractProtocolVersion(src []byte) (protocolVersion, []byte) {
+	return protocolVersion{
+		src[0], src[1],
+	}, src[2:]
+}
+
 func extractCipherSuites(src []byte) ([]cipherSuite, []byte, error) {
 	ciphersLen, p := extractUint16(src)
 	if ciphersLen < 2 || ciphersLen > 2^16-1 {

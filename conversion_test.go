@@ -25,9 +25,20 @@ func (s *ToySuite) TestExtractUint32(c *C) {
 func (s *ToySuite) TestWriteBytesFromUint16(c *C) {
 	n := uint16(0x1234)
 	b := writeBytesFromUint16(n)
-	
+
 	exp := [2]byte{
 		0x12, 0x34,
+	}
+
+	c.Assert(b, DeepEquals, exp)
+}
+
+func (s *ToySuite) TestWriteBytesFromUint24(c *C) {
+	n := uint32(0x123456)
+	b := writeBytesFromUint24(n)
+
+	exp := [3]byte{
+		0x12, 0x34, 0x56,
 	}
 
 	c.Assert(b, DeepEquals, exp)

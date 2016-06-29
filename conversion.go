@@ -87,7 +87,15 @@ func extractCompressionMethods(src []byte) ([]byte, []byte, error) {
 
 func writeBytesFromUint16(n uint16) (dst [2]byte) {
 	dst[0] = byte(n >> 8 & 0xff)
-	dst[1] = byte(n >> 0 & 0xff)
+	dst[1] = byte(n & 0xff)
+
+	return
+}
+
+func writeBytesFromUint24(n uint32) (dst [3]byte) {
+	dst[0] = byte(n >> 16 & 0xff)
+	dst[1] = byte(n >> 8 & 0xff)
+	dst[2] = byte(n & 0xff)
 
 	return
 }
@@ -96,7 +104,7 @@ func writeBytesFromUint32(n uint32) (dst [4]byte) {
 	dst[0] = byte(n >> 24 & 0xff)
 	dst[1] = byte(n >> 16 & 0xff)
 	dst[2] = byte(n >> 8 & 0xff)
-	dst[3] = byte(n >> 0 & 0xff)
+	dst[3] = byte(n & 0xff)
 
 	return
 }

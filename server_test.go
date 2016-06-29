@@ -86,3 +86,30 @@ func (s *ToySuite) TestSerializeServerHello(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(msg, DeepEquals, expected)
 }
+
+func (s *ToySuite) TestSerializeCertificate(c *C) {
+	certBytes := &certificateBody{
+		certificateList: [][]byte{
+			[]byte{0x01, 0x02, 0x03, 0x04},
+			[]byte{0x05, 0x06, 0x07, 0x08, 0x09},
+		},
+	}
+
+	msg, err := serializeCertificate(certBytes)
+
+	expected := []byte{
+		//certificate_list
+		0x00, 0x00, 0x0f, //length
+
+		//first certificate
+		0x00, 0x00, 0x04, //length
+		0x01, 0x02, 0x03, 0x04, //content
+
+		//second certificate
+		0x00, 0x00, 0x05, //length
+		0x05, 0x06, 0x07, 0x08, 0x09, //content
+	}
+
+	c.Assert(err, IsNil)
+	c.Assert(msg, DeepEquals, expected)
+}

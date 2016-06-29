@@ -34,3 +34,22 @@ func serializeServerHello(h *serverHelloBody) ([]byte, error) {
 
 	return hello, nil
 }
+
+func deserializeCertificate() {
+	//TODO
+}
+
+func serializeCertificate(c *certificateBody) ([]byte, error) {
+	certListBody := make([]byte, 0, 0xffffff) // 2^24-1 is maximim length
+	for _, ci := range c.certificateList {
+		//XXX check len(ci). It should be less than 0xFFFFFF
+		certificateLen := writeBytesFromUint24(uint32(len(ci)))
+		certListBody = append(certListBody, certificateLen[:]...)
+		certListBody = append(certListBody, ci...)
+	}
+
+	certificateListLen := writeBytesFromUint24(uint32(len(certListBody)))
+	cert := append(certificateListLen[:], certListBody...)
+
+	return cert, nil
+}

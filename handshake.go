@@ -84,5 +84,25 @@ type serverHelloDoneBody struct{}
 //XXX Not necessary until our server sends certificateRequest
 type certificateVerifyBody struct{}
 
+//This will always be EncryptedPreMasterSecret in our case (RSA key-exchange)
 type clientKeyExchangeBody struct{}
+
+// See page 58 if you want to play with different attacks on this
+// This is where the protocol starts to show all its problems with interoperability
+// with stupid clients.
+type preMasterSecret struct {
+	//This is in response to the version rollback attack
+	//It is interesting to note that after agreeing on a version, all the subsequent
+	//messages just assume both sides will behave and use the version they have agreed
+	//upon. If you compare this to OTR, every message after the version agreement
+	//contains the version.
+	clientVersion protocolVersion
+	random        [46]byte
+}
+
+type encryptedPreMasterSecretBody struct {
+	// This is encrypted
+	preMasterSecret []byte // Size is <0..2^16-1>
+}
+
 type finishedBody struct{}

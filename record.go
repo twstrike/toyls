@@ -2,9 +2,9 @@ package toyls
 
 type ConnectionEnd uint8
 
-var (
+const (
 	SERVER ConnectionEnd = 0
-	CLIENT ConnectionEnd = 1
+	CLIENT               = 1
 )
 
 type SecurityParameters struct {

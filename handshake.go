@@ -100,8 +100,13 @@ type preMasterSecret struct {
 	random        [46]byte
 }
 
+//XXX This can be postponed until we actually start running the handshake.
+//For now, we are only doing serialization/deserialization.
 type encryptedPreMasterSecretBody struct {
-	// This is encrypted
+	// This is encrypted using the public key from the server's certificate
+	// In our case (we're going to start with RSA):
+	// RSA encryption is done using the RSAES-PKCS1-v1_5 encryption scheme
+	// defined in [PKCS1].
 	preMasterSecret []byte // Size is <0..2^16-1>
 }
 

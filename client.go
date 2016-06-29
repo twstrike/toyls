@@ -18,15 +18,14 @@ func (c *handshakeClient) sendClientHello() []byte {
 func deserializeClientHello(h []byte) (*clientHelloBody, error) {
 	hello := &clientHelloBody{}
 	hello.clientVersion, h = extractProtocolVersion(h)
-	hello.random.gmtUnixTime, h = extractUint32(h)
-	copy(hello.random.randomBytes[:], h[:28])
 
-	sessionLen := int(h[28])
+	hello.random, h = extractRandom(h)
+	sessionLen := int(h[0])
 	hello.sessionID = make([]byte, sessionLen)
-	copy(hello.sessionID, h[29:29+sessionLen])
+	copy(hello.sessionID, h[1:1+sessionLen])
 
 	var err error
-	ciphersStart := 29 + sessionLen
+	ciphersStart := 1 + sessionLen
 	if hello.cipherSuites, h, err = extractCipherSuites(h[ciphersStart:]); err != nil {
 		return &clientHelloBody{}, err
 	}

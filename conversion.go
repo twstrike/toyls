@@ -30,6 +30,14 @@ func extractProtocolVersion(src []byte) (protocolVersion, []byte) {
 	}, src[2:]
 }
 
+func extractRandom(src []byte) (random, []byte) {
+	r := random{}
+	r.gmtUnixTime, src = extractUint32(src)
+	copy(r.randomBytes[:], src[:28])
+
+	return r, src[28:]
+}
+
 func extractCipherSuites(src []byte) ([]cipherSuite, []byte, error) {
 	ciphersLen, p := extractUint16(src)
 	if ciphersLen < 2 || ciphersLen > 2^16-1 {

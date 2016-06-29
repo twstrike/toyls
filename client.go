@@ -34,29 +34,31 @@ func deserializeClientHello(h []byte) (*clientHelloBody, error) {
 }
 
 func serializeClientHello(h *clientHelloBody) ([]byte, error) {
-	ciphers := len(h.cipherSuites)
-	compressions := len(h.compressionMethods)
-	sessionLen := len(h.sessionID)
-	capacity := 34 + ciphers * 2 + compressions + 4 + sessionLen
-	hello := make([]byte, 2, capacity)
+	cipherSuitesLen := len(h.cipherSuites) * cipherSuiteLen
+	compressionMethodsLen := len(h.compressionMethods)
+	sessionIDLen := len(h.sessionID)
+	vectorSizesLen := 4
+	capacity := protocolVersionLen + randomLen + cipherSuitesLen + compressionMethodsLen + sessionIDLen + vectorSizesLen
 
-	hello[0] = h.clientVersion.major
-	hello[1] = h.clientVersion.minor
+	hello := make([]byte, 0, capacity)
+	hello = append(hello, h.clientVersion.major, h.clientVersion.minor)
 
 	gmtUnixTime := writeBytesFromUint32(h.random.gmtUnixTime)
 	hello = append(hello, gmtUnixTime[:]...)
 	hello = append(hello, h.random.randomBytes[:]...)
 
-	hello = append(hello, byte(sessionLen))
+	hello = append(hello, byte(sessionIDLen))
 	hello = append(hello, h.sessionID...)
 
-	ciphersLen := writeBytesFromUint16(uint16(ciphers * 2))
+	//XXX check size
+	ciphersLen := writeBytesFromUint16(uint16(cipherSuitesLen))
 	hello = append(hello, ciphersLen[:]...)
-	for _, c :=  range h.cipherSuites {
+	for _, c := range h.cipherSuites {
 		hello = append(hello, c[:]...)
 	}
 
-	hello = append(hello, uint8(compressions))
+	//XXX check size
+	hello = append(hello, uint8(compressionMethodsLen))
 	hello = append(hello, h.compressionMethods...)
 
 	return hello, nil

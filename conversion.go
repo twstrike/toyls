@@ -6,7 +6,9 @@ import (
 )
 
 const (
-	cipherSuiteLen = 2
+	cipherSuiteLen     = 2
+	randomLen          = 32
+	protocolVersionLen = 2
 )
 
 func extractUint16(src []byte) (n uint16, p []byte) {
@@ -81,7 +83,7 @@ func extractCompressionMethods(src []byte) ([]byte, []byte, error) {
 func writeBytesFromUint16(n uint16) (dst [2]byte) {
 	dst[0] = byte(n >> 8 & 0xff)
 	dst[1] = byte(n >> 0 & 0xff)
-	
+
 	return
 }
 
@@ -90,6 +92,6 @@ func writeBytesFromUint32(n uint32) (dst [4]byte) {
 	dst[1] = byte(n >> 16 & 0xff)
 	dst[2] = byte(n >> 8 & 0xff)
 	dst[3] = byte(n >> 0 & 0xff)
-	
+
 	return
 }

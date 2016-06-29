@@ -62,3 +62,11 @@ func extractCipherSuites(src []byte) ([]cipherSuite, []byte, error) {
 
 	return dst, p[ciphersLen:], nil
 }
+
+func extractCompressionMethods(src []byte) ([]byte, []byte) {
+	compressions := int(src[0])
+	compressionMethods := make([]byte, compressions)
+	copy(compressionMethods, src[1:1+compressions])
+
+	return compressionMethods, src[1+compressions:]
+}

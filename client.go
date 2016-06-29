@@ -26,9 +26,7 @@ func deserializeClientHello(h []byte) (*clientHelloBody, error) {
 		return &clientHelloBody{}, err
 	}
 
-	compressions := int(h[0])
-	hello.compressionMethods = make([]byte, compressions)
-	copy(hello.compressionMethods[:], h[1:1+compressions])
+	hello.compressionMethods, _ = extractCompressionMethods(h)
 
 	return hello, nil
 }

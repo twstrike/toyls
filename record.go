@@ -74,6 +74,15 @@ var (
 	VersionTLS12 = protocolVersion{0x03, 0x03}
 )
 
+type WriteParams struct {
+	clientMAC,
+	serverMAC,
+	clientKey,
+	serverKey,
+	clientIV,
+	serverIV []byte
+}
+
 type TLSPlaintext struct {
 	contentType ContentType
 	version     protocolVersion

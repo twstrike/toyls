@@ -12,3 +12,21 @@ func (s *ToySuite) TestPRF(c *C) {
 
 	c.Assert(result, DeepEquals, []byte{0xe9, 0x98, 0xd, 0xad, 0xa3})
 }
+
+func (s *ToySuite) TestKeysFromMasterSecret(c *C) {
+	params := SecurityParameters{
+		mac_key_length:  1,
+		enc_key_length:  2,
+		fixed_iv_length: 3,
+		master_secret:   [48]byte{},
+		client_random:   [32]byte{},
+		server_random:   [32]byte{},
+	}
+	writeParams := keysFromMasterSecret(params)
+	c.Assert(len(writeParams.clientMAC), Equals, int(params.mac_key_length))
+	c.Assert(len(writeParams.serverMAC), Equals, int(params.mac_key_length))
+	c.Assert(len(writeParams.clientKey), Equals, int(params.enc_key_length))
+	c.Assert(len(writeParams.serverKey), Equals, int(params.enc_key_length))
+	c.Assert(len(writeParams.clientIV), Equals, int(params.fixed_iv_length))
+	c.Assert(len(writeParams.serverIV), Equals, int(params.fixed_iv_length))
+}

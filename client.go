@@ -16,12 +16,12 @@ func (c *handshakeClient) sendClientHello() []byte {
 }
 
 func deserializeClientHello(h []byte) (*clientHelloBody, error) {
+	var err error
 	hello := &clientHelloBody{}
+
 	hello.clientVersion, h = extractProtocolVersion(h)
 	hello.random, h = extractRandom(h)
 	hello.sessionID, h = extractSessionID(h)
-
-	var err error
 	if hello.cipherSuites, h, err = extractCipherSuites(h); err != nil {
 		return &clientHelloBody{}, err
 	}

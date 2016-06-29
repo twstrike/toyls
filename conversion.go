@@ -64,6 +64,7 @@ func extractCipherSuites(src []byte) ([]cipherSuite, []byte, error) {
 }
 
 func extractCompressionMethods(src []byte) ([]byte, []byte) {
+	//TODO: Validate compressionMethodsSize
 	compressions := int(src[0])
 	compressionMethods := make([]byte, compressions)
 	copy(compressionMethods, src[1:1+compressions])

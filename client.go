@@ -1,7 +1,6 @@
 package toyls
 
 import (
-	"errors"
 	"io"
 	"time"
 )
@@ -29,22 +28,15 @@ func deserializeClientHello(h []byte) (*clientHelloBody, error) {
 	hello.sessionID = make([]byte, sessionLen)
 	copy(hello.sessionID, h[29:29+sessionLen])
 
+	var err error
 	ciphersStart := 29 + sessionLen
-	ciphers, h := extractUint16(h[ciphersStart:])
-	if ciphers < 2 || ciphers > 2^16-1 {
-		return &clientHelloBody{}, errors.New("The cipher suite list should contain <2..2^16-2> elements.")
-		
-	}
-	hello.cipherSuites = make([]cipherSuite, ciphers/2)
-	for i := 0; i < int(ciphers)/2; i++ {
-		s := &hello.cipherSuites[i]
-		copy(s[:], h[i*2:i*2+2])
+	if hello.cipherSuites, h, err = extractCipherSuites(h[ciphersStart:]); err != nil {
+		return &clientHelloBody{}, err
 	}
 
-	compressionStart := int(ciphers)
-	compressions := int(h[compressionStart])
+	compressions := int(h[0])
 	hello.compressionMethods = make([]byte, compressions)
-	copy(hello.compressionMethods[:], h[compressionStart+1:compressionStart+1+compressions])
+	copy(hello.compressionMethods[:], h[1:1+compressions])
 
 	return hello, nil
 }

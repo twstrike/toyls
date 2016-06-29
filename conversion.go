@@ -50,12 +50,12 @@ func extractSessionID(src []byte) ([]byte, []byte) {
 }
 
 func extractCipherSuites(src []byte) ([]cipherSuite, []byte, error) {
-	ciphersLen, p := extractUint16(src)
-	if ciphersLen < 2 || ciphersLen > uint16(math.Pow(2, 16))-2 {
+	vectorLen, p := extractUint16(src)
+	if vectorLen < 2 || vectorLen > uint16(math.Pow(2, 16))-2 {
 		return nil, p, errors.New("The cipher suite vector should contain <2..2^16-2> bytes.")
 	}
 
-	n := ciphersLen / cipherSuiteLen
+	n := vectorLen / cipherSuiteLen
 	dst := make([]cipherSuite, n)
 
 	for i := 0; i < len(dst); i++ {
@@ -63,19 +63,17 @@ func extractCipherSuites(src []byte) ([]cipherSuite, []byte, error) {
 		copy(s[:], p[i*2:i*2+2])
 	}
 
-	return dst, p[ciphersLen:], nil
+	return dst, p[vectorLen:], nil
 }
 
 func extractCompressionMethods(src []byte) ([]byte, []byte, error) {
-	//TODO: Validate compressionMethodsSize
-	compressions := int(src[0])
-
-	if compressions < 1 || compressions > int(math.Pow(2, 8))-1 {
+	vectorLen := int(src[0])
+	if vectorLen < 1 || vectorLen > int(math.Pow(2, 8))-1 {
 		return nil, src[1:], errors.New("The compression methods vector should contain <1..2^8-2> bytes.")
 	}
 
-	compressionMethods := make([]byte, compressions)
-	copy(compressionMethods, src[1:1+compressions])
+	compressionMethods := make([]byte, vectorLen)
+	copy(compressionMethods, src[1:1+vectorLen])
 
-	return compressionMethods, src[1+compressions:], nil
+	return compressionMethods, src[1+vectorLen:], nil
 }

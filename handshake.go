@@ -36,10 +36,6 @@ type handshakeMessage struct {
 	body interface{}
 }
 
-type protocolVersion struct {
-	major, minor uint8
-}
-
 type cipherSuite [2]uint8
 
 type random struct {

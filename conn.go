@@ -2,7 +2,6 @@ package toyls
 
 import (
 	"crypto/cipher"
-	"encoding/binary"
 	"io"
 )
 
@@ -26,8 +25,8 @@ func (c *Conn) handleFragment(in io.Reader) (TLSCiphertext, error) {
 	header := make([]byte, 5)
 	in.Read(header)
 	cipherText.contentType = ContentType(header[0])
-	cipherText.version = ProtocolVersion{header[1], header[2]}
-	cipherText.length = binary.BigEndian.Uint16(header[3:])
+	cipherText.version, header = extractProtocolVersion(header[1:])
+	cipherText.length, header = extractUint16(header)
 	cipherText.fragment = make([]byte, cipherText.length)
 	in.Read(cipherText.fragment)
 	return cipherText, nil

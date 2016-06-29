@@ -62,35 +62,35 @@ var (
 	// other           ContentType = 255
 )
 
-type ProtocolVersion struct {
+type protocolVersion struct {
 	major uint8
 	minor uint8
 }
 
 var (
-	VersionSSL30 ProtocolVersion = ProtocolVersion{0x03, 0x00}
-	VersionTLS10 ProtocolVersion = ProtocolVersion{0x03, 0x01}
-	VersionTLS11 ProtocolVersion = ProtocolVersion{0x03, 0x02}
-	VersionTLS12 ProtocolVersion = ProtocolVersion{0x03, 0x03}
+	VersionSSL30 protocolVersion = protocolVersion{0x03, 0x00}
+	VersionTLS10 protocolVersion = protocolVersion{0x03, 0x01}
+	VersionTLS11 protocolVersion = protocolVersion{0x03, 0x02}
+	VersionTLS12 protocolVersion = protocolVersion{0x03, 0x03}
 )
 
 type TLSPlaintext struct {
 	contentType ContentType
-	version     ProtocolVersion
+	version     protocolVersion
 	length      uint16
 	fragment    []byte //TLSPlaintext.length MUST NOT exceed 2^14.
 }
 
 type TLSCompressed struct {
 	contentType ContentType
-	version     ProtocolVersion
+	version     protocolVersion
 	length      uint16
 	fragment    []byte //TLSCompressed.length MUST NOT exceed 2^14 + 1024.
 }
 
 type TLSCiphertext struct {
 	contentType ContentType
-	version     ProtocolVersion
+	version     protocolVersion
 	length      uint16
 	// select (SecurityParameters.cipher_type) {
 	//     case stream: GenericStreamCipher;

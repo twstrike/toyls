@@ -26,7 +26,9 @@ func deserializeClientHello(h []byte) (*clientHelloBody, error) {
 		return &clientHelloBody{}, err
 	}
 
-	hello.compressionMethods, _ = extractCompressionMethods(h)
+	if hello.compressionMethods, _, err = extractCompressionMethods(h); err != nil {
+		return &clientHelloBody{}, err
+	}
 
 	return hello, nil
 }

@@ -66,11 +66,16 @@ func extractCipherSuites(src []byte) ([]cipherSuite, []byte, error) {
 	return dst, p[ciphersLen:], nil
 }
 
-func extractCompressionMethods(src []byte) ([]byte, []byte) {
+func extractCompressionMethods(src []byte) ([]byte, []byte, error) {
 	//TODO: Validate compressionMethodsSize
 	compressions := int(src[0])
+
+	if compressions < 1 || compressions > int(math.Pow(2, 8))-1 {
+		return nil, src[1:], errors.New("The compression methods vector should contain <1..2^8-2> bytes.")
+	}
+
 	compressionMethods := make([]byte, compressions)
 	copy(compressionMethods, src[1:1+compressions])
 
-	return compressionMethods, src[1+compressions:]
+	return compressionMethods, src[1+compressions:], nil
 }

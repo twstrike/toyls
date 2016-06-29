@@ -68,10 +68,10 @@ type protocolVersion struct {
 }
 
 var (
-	VersionSSL30 protocolVersion = protocolVersion{0x03, 0x00}
-	VersionTLS10 protocolVersion = protocolVersion{0x03, 0x01}
-	VersionTLS11 protocolVersion = protocolVersion{0x03, 0x02}
-	VersionTLS12 protocolVersion = protocolVersion{0x03, 0x03}
+	VersionSSL30 = protocolVersion{0x03, 0x00}
+	VersionTLS10 = protocolVersion{0x03, 0x01}
+	VersionTLS11 = protocolVersion{0x03, 0x02}
+	VersionTLS12 = protocolVersion{0x03, 0x03}
 )
 
 type TLSPlaintext struct {

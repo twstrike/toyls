@@ -5,6 +5,10 @@ import (
 	"math"
 )
 
+const (
+	cipherSuiteLen = 2
+)
+
 func extractUint16(src []byte) (n uint16, p []byte) {
 	n |= uint16(src[0]) << 8
 	n |= uint16(src[1])
@@ -22,10 +26,6 @@ func extractUint32(src []byte) (n uint32, p []byte) {
 
 	return
 }
-
-const (
-	cipherSuiteLen = 2
-)
 
 func extractProtocolVersion(src []byte) (protocolVersion, []byte) {
 	return protocolVersion{
@@ -76,4 +76,20 @@ func extractCompressionMethods(src []byte) ([]byte, []byte, error) {
 	copy(compressionMethods, src[1:1+vectorLen])
 
 	return compressionMethods, src[1+vectorLen:], nil
+}
+
+func writeBytesFromUint16(n uint16) (dst [2]byte) {
+	dst[0] = byte(n >> 8 & 0xff)
+	dst[1] = byte(n >> 0 & 0xff)
+	
+	return
+}
+
+func writeBytesFromUint32(n uint32) (dst [4]byte) {
+	dst[0] = byte(n >> 24 & 0xff)
+	dst[1] = byte(n >> 16 & 0xff)
+	dst[2] = byte(n >> 8 & 0xff)
+	dst[3] = byte(n >> 0 & 0xff)
+	
+	return
 }

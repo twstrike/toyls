@@ -38,6 +38,14 @@ func extractRandom(src []byte) (random, []byte) {
 	return r, src[28:]
 }
 
+func extractSessionID(src []byte) ([]byte, []byte) {
+	sessionLen := int(src[0])
+	sessionID := make([]byte, sessionLen)
+	copy(sessionID, src[1:1+sessionLen])
+
+	return sessionID, src[1+sessionLen:]
+}
+
 func extractCipherSuites(src []byte) ([]cipherSuite, []byte, error) {
 	ciphersLen, p := extractUint16(src)
 	if ciphersLen < 2 || ciphersLen > 2^16-1 {

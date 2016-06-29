@@ -12,6 +12,7 @@ func newHandshakeClient() *handshakeClient {
 }
 
 func (c *handshakeClient) sendClientHello() []byte {
+	//TODO generate a client hello
 	return nil
 }
 

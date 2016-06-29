@@ -68,6 +68,11 @@ func extractCipherSuites(src []byte) ([]cipherSuite, []byte, error) {
 	return dst, p[vectorLen:], nil
 }
 
+func extractCipherSuite(dst, src []byte) []byte {
+	copy(dst, src[:2])
+	return src[2:]
+}
+
 func extractCompressionMethods(src []byte) ([]byte, []byte, error) {
 	vectorLen := int(src[0])
 	if vectorLen < 1 || vectorLen > int(math.Pow(2, 8))-1 {

@@ -1,6 +1,9 @@
 package toyls
 
-import "errors"
+import (
+	"errors"
+	"math"
+)
 
 func extractUint16(src []byte) (n uint16, p []byte) {
 	n |= uint16(src[0]) << 8
@@ -48,8 +51,8 @@ func extractSessionID(src []byte) ([]byte, []byte) {
 
 func extractCipherSuites(src []byte) ([]cipherSuite, []byte, error) {
 	ciphersLen, p := extractUint16(src)
-	if ciphersLen < 2 || ciphersLen > 2^16-1 {
-		return nil, p, errors.New("The cipher suite list should contain <2..2^16-2> elements.")
+	if ciphersLen < 2 || ciphersLen > uint16(math.Pow(2, 16))-2 {
+		return nil, p, errors.New("The cipher suite vector should contain <2..2^16-2> bytes.")
 	}
 
 	n := ciphersLen / cipherSuiteLen

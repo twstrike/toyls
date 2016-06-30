@@ -1,5 +1,39 @@
 package toyls
 
+import "crypto/rand"
+
+type handshakeServer struct{}
+
+func newHandshakeServer() *handshakeServer {
+	return &handshakeServer{}
+}
+
+func (s *handshakeServer) receiveClientHello(m []byte) ([]byte, error) {
+	_, err := deserializeClientHello(m)
+	if err != nil {
+		return nil, err
+	}
+
+	//TODO: check all things and return error if we cant agree
+
+	serverHello := &serverHelloBody{
+		serverVersion:     VersionTLS12, //If supported by the client
+		random:            newRandom(rand.Reader),
+		sessionID:         nil,                     // we dont support session resume
+		cipherSuite:       cipherSuite{0x00, 0x2f}, //If supported by the client
+		compressionMethod: 0x00,                    //Is supported by the client
+	}
+
+	message, err := serializeServerHello(serverHello)
+	if err != nil {
+		return nil, err
+	}
+
+	return serializeHandshakeMessage(&handshakeMessage{
+		serverHelloType, message,
+	}), nil
+}
+
 func deserializeServerHello(h []byte) (*serverHelloBody, error) {
 	hello := &serverHelloBody{}
 

@@ -13,15 +13,15 @@ type handshakeType uint8
 
 const (
 	helloRequestType       handshakeType = 0
-	clientHelloType                      = 1
-	serverHelloType                      = 2
-	certificateType                      = 11
-	serverKeyExchangeType                = 12
-	certificateRequestType               = 13
-	serverHelloDoneType                  = 14
-	certificateVerifyType                = 15
-	clientKeyExchangeType                = 16
-	finishedType                         = 20
+	clientHelloType        handshakeType = 1
+	serverHelloType        handshakeType = 2
+	certificateType        handshakeType = 11
+	serverKeyExchangeType  handshakeType = 12
+	certificateRequestType handshakeType = 13
+	serverHelloDoneType    handshakeType = 14
+	certificateVerifyType  handshakeType = 15
+	clientKeyExchangeType  handshakeType = 16
+	finishedType           handshakeType = 20
 )
 
 type handshakeMessage struct {
@@ -106,4 +106,25 @@ type encryptedPreMasterSecretBody struct {
 type finishedBody struct {
 	//Size: verify_data_length OR 12 (if not specified by the cipher suite)
 	verify_data []byte
+}
+
+func serializeHandshakeMessage(m *handshakeMessage) []byte {
+	msgLen := writeBytesFromUint24(uint32(len(m.message)))
+
+	dst := make([]byte, 0, len(m.message)+4)
+	dst = append(dst, byte(m.msgType))
+	dst = append(dst, msgLen[:]...)
+	return append(dst, m.message...)
+}
+
+func deserializeHandshakeMessage(m []byte) *handshakeMessage {
+	msgType := m[0]
+	messageLen, m := extractUint24(m[1:])
+	message := make([]byte, messageLen)
+	copy(message, m[:messageLen])
+
+	return &handshakeMessage{
+		msgType: handshakeType(msgType),
+		message: message,
+	}
 }

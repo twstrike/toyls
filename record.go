@@ -131,6 +131,8 @@ func (t TLSCiphertext) header() (ret []byte) {
 type Ciphered interface {
 	Marshal() []byte
 	UnMarshal([]byte, SecurityParameters) Ciphered
+	Content() []byte
+	Mac() []byte
 }
 
 type GenericStreamCipher struct {
@@ -151,10 +153,18 @@ func (c GenericStreamCipher) Marshal() []byte {
 	return ret
 }
 
-func (c GenericStreamCipher) UnMarshal(fragment []byte, params SecurityParameters) GenericStreamCipher {
+func (c GenericStreamCipher) UnMarshal(fragment []byte, params SecurityParameters) Ciphered {
 	c.content = fragment[:len(fragment)-int(params.mac_algorithm.Size())]
 	c.MAC = fragment[len(fragment)-int(params.mac_algorithm.Size()):]
 	return c
+}
+
+func (c GenericStreamCipher) Content() []byte {
+	return c.content
+}
+
+func (c GenericStreamCipher) Mac() []byte {
+	return c.MAC
 }
 
 type GenericBlockCipher struct {
@@ -175,13 +185,21 @@ func (c GenericBlockCipher) Marshal() []byte {
 	return ret
 }
 
-func (c GenericBlockCipher) UnMarshal(fragment []byte, params SecurityParameters) GenericBlockCipher {
+func (c GenericBlockCipher) UnMarshal(fragment []byte, params SecurityParameters) Ciphered {
 	c.IV = fragment[:params.record_iv_length]
 	c.padding_length = fragment[len(fragment)-1]
 	c.padding = fragment[len(fragment)-1-int(c.padding_length) : len(fragment)-1]
 	c.MAC = fragment[len(fragment)-1-int(c.padding_length)-int(params.mac_algorithm.Size()) : len(fragment)-1-int(c.padding_length)]
 	c.content = fragment[params.record_iv_length : len(fragment)-1-int(c.padding_length)-int(params.mac_algorithm.Size())]
 	return c
+}
+
+func (c GenericBlockCipher) Content() []byte {
+	return c.content
+}
+
+func (c GenericBlockCipher) Mac() []byte {
+	return c.MAC
 }
 
 type GenericAEADCipher struct {
@@ -196,8 +214,16 @@ func (c GenericAEADCipher) Marshal() []byte {
 	return ret
 }
 
-func (c GenericAEADCipher) UnMarshal(fragment []byte, params SecurityParameters) GenericAEADCipher {
+func (c GenericAEADCipher) UnMarshal(fragment []byte, params SecurityParameters) Ciphered {
 	c.nonce_explicit = fragment[:params.record_iv_length]
 	c.content = fragment[params.record_iv_length:]
 	return c
+}
+
+func (c GenericAEADCipher) Content() []byte {
+	return c.content
+}
+
+func (c GenericAEADCipher) Mac() []byte {
+	return []byte{}
 }

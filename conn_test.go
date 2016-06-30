@@ -34,8 +34,7 @@ func (s *ToySuite) TestConnHandleCipherText(c *C) {
 		version:     VersionTLS12,
 		length:      uint16(len(ciphered.content) + conn.params.mac_algorithm.Size()),
 	}
-	header := cipherText.header()
-	ciphered.MAC = conn.params.mac_algorithm.MAC(nil, conn.state.sequence_number[0:], header[:], ciphered.content)
+	ciphered.MAC = conn.params.mac_algorithm.MAC(nil, conn.state.sequence_number[0:], cipherText.header(), ciphered.content)
 	cipherText.fragment = ciphered.Marshal()
 	compressed, err := conn.handleCipherText(cipherText)
 
@@ -68,4 +67,29 @@ func (s *ToySuite) TestConnHandleCompressed(c *C) {
 	c.Assert(plaintext.version, Equals, VersionTLS12)
 	c.Assert(plaintext.length, Equals, uint16(3))
 	c.Assert(plaintext.fragment, DeepEquals, []byte{0x01, 0x02, 0x03})
+}
+
+func (s *ToySuite) TestConnMacAndEncrypt(c *C) {
+	conn := Conn{
+		params: SecurityParameters{
+			cipher: mockStreamCipher{},
+			mac_algorithm: MACAlgorithm{
+				h: sha256.New(),
+			},
+		},
+	}
+	compressed := TLSCompressed{
+		contentType: HANDSHAKE,
+		version:     VersionTLS12,
+		length:      2,
+		fragment:    []byte{0x01, 0x02},
+	}
+	cipherText, err := conn.macAndEncrypt(compressed)
+	c.Assert(err, IsNil)
+	compressed, err = conn.handleCipherText(cipherText)
+	c.Assert(err, IsNil)
+	c.Assert(compressed.contentType, Equals, HANDSHAKE)
+	c.Assert(compressed.version, Equals, VersionTLS12)
+	c.Assert(compressed.length, Equals, uint16(2))
+	c.Assert(compressed.fragment, DeepEquals, []byte{0x01, 0x02})
 }

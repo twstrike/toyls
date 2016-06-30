@@ -124,6 +124,16 @@ type TLSCiphertext struct {
 	fragment []byte //TLSCiphertext.length MUST NOT exceed 2^14 + 2048.
 }
 
+func (t TLSCiphertext) serialize() (ret []byte) {
+	ret = append(ret, byte(t.contentType))
+	ret = append(ret, t.version.major)
+	ret = append(ret, t.version.minor)
+	ret = append(ret, (byte)(t.length>>8))
+	ret = append(ret, (byte)(t.length))
+	ret = append(ret, t.fragment...)
+	return ret
+}
+
 func (t TLSCiphertext) header() (ret []byte) {
 	return append(ret[:0], byte(t.contentType), t.version.major, t.version.minor, (byte)(t.length>>8), (byte)(t.length))
 }

@@ -13,12 +13,32 @@ type ToySuite struct{}
 var _ = Suite(&ToySuite{})
 
 func (s *ToySuite) TestClientHandshake(c *C) {
-	c.Skip("comming soon")
 	client := newHandshakeClient()
-	msg, err := deserializeClientHello(client.sendClientHello())
+	msg, err := client.sendClientHello()
 
 	c.Assert(err, IsNil)
-	c.Assert(msg, DeepEquals, &clientHelloBody{})
+	c.Assert(len(msg), Equals, 0x29+4)
+	c.Assert(msg[:6], DeepEquals, []byte{
+		0x01,             // msg_type = client_hello
+		0x00, 0x00, 0x29, //length
+
+		//client_version
+		0x03, 0x03, //ProtocolVersion
+	})
+
+	//We skip random (32 bytes)
+	c.Assert(msg[38:], DeepEquals, []byte{
+		//session_id (SessionID)
+		0x00, //length
+
+		//cipher_suites
+		0x00, 0x02, // length
+		0x00, 0x2f, // CipherSuite: TLS_RSA_WITH_AES_128_CBC_SHA
+
+		//compression_methods
+		0x01, //length
+		0x00, //NULL
+	})
 }
 
 func (s *ToySuite) TestDeserializeClientHello(c *C) {

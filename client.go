@@ -1,6 +1,7 @@
 package toyls
 
 import (
+	"crypto/rand"
 	"io"
 	"time"
 )
@@ -11,9 +12,25 @@ func newHandshakeClient() *handshakeClient {
 	return &handshakeClient{}
 }
 
-func (c *handshakeClient) sendClientHello() []byte {
-	//TODO generate a client hello
-	return nil
+//SHOULD GENERATE A RECORD THAT A SERVER CAN RECEIVE?
+func (c *handshakeClient) sendClientHello() ([]byte, error) {
+	message, err := serializeClientHello(&clientHelloBody{
+		clientVersion: VersionTLS12,
+		random:        newRandom(rand.Reader),
+		sessionID:     nil,
+		cipherSuites: []cipherSuite{
+			cipherSuite{0x00, 0x2f}, // TLS_RSA_WITH_AES_128_CBC_SHA
+		},
+		compressionMethods: []uint8{0x00}, //No compression
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return serializeHandshakeMessage(&handshakeMessage{
+		clientHelloType, message,
+	}), nil
 }
 
 func deserializeClientHello(h []byte) (*clientHelloBody, error) {

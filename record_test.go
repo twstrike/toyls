@@ -1,10 +1,21 @@
 package toyls
 
 import (
+	"crypto/sha256"
 	"io"
 
 	. "gopkg.in/check.v1"
 )
+
+func (s *ToySuite) TestTLSCiphertextHeader(c *C) {
+	cipherText := TLSCiphertext{
+		contentType: HANDSHAKE,
+		version:     VersionTLS10,
+		length:      1,
+	}
+
+	c.Assert(cipherText.header(), DeepEquals, []byte{22, 0x3, 0x1, 0x0, 0x1})
+}
 
 func (s *ToySuite) TestConnHandleFragment(c *C) {
 	conn := Conn{}
@@ -18,19 +29,28 @@ func (s *ToySuite) TestConnHandleFragment(c *C) {
 }
 
 func (s *ToySuite) TestConnHandleCipherText(c *C) {
-	conn := Conn{}
+	conn := Conn{
+		params: SecurityParameters{
+			cipher: mockStreamCipher{},
+			mac_algorithm: MACAlgorithm{
+				h: sha256.New(),
+			},
+		},
+	}
+	ciphered := GenericStreamCipher{
+		content: []byte{0x01, 0x02}, //TLSCompressed.length
+	}
 	cipherText := TLSCiphertext{
 		contentType: HANDSHAKE,
 		version:     VersionTLS12,
-		length:      3,
-		fragment:    []byte{0x01, 0x02, 0x03},
+		length:      uint16(len(ciphered.content) + conn.params.mac_algorithm.Size()),
 	}
-	conn.params = SecurityParameters{}
-	conn.params.mac_length = 1
-	conn.params.cipher = mockStreamCipher{}
+	header := cipherText.header()
+	ciphered.MAC = conn.params.mac_algorithm.MAC(nil, conn.state.sequence_number[0:], header[:], ciphered.content)
+	cipherText.fragment = ciphered.Marshal()
+	compressed, err := conn.handleCipherText(cipherText)
 
-	compressed, _ := conn.handleCipherText(cipherText)
-
+	c.Assert(err, IsNil)
 	c.Assert(compressed.contentType, Equals, HANDSHAKE)
 	c.Assert(compressed.version, Equals, VersionTLS12)
 	c.Assert(compressed.length, Equals, uint16(2))
@@ -62,27 +82,31 @@ func (s *ToySuite) TestConnHandleCompressed(c *C) {
 }
 
 func (s *ToySuite) TestGenericStreamCipherMarshalAndUnMarshal(c *C) {
-	ciphered := GenericStreamCipher{
-		content: []byte{0x02},       //TLSCompressed.length
-		MAC:     []byte{0x03, 0x01}, //SecurityParameters.mac_length
-	}
 	params := SecurityParameters{
-		mac_length: 2,
+		mac_algorithm: MACAlgorithm{
+			h: sha256.New(),
+		},
+	}
+	ciphered := GenericStreamCipher{
+		content: []byte{0x02},                              //TLSCompressed.length
+		MAC:     make([]byte, params.mac_algorithm.Size()), //SecurityParameters.mac_length
 	}
 	c.Assert(GenericStreamCipher{}.UnMarshal(ciphered.Marshal(), params), DeepEquals, ciphered)
 }
 
 func (s *ToySuite) TestGenericBlockCipherMarshalAndUnMarshal(c *C) {
-	ciphered := GenericBlockCipher{
-		IV:             []byte{0x01, 0x01}, //SecurityParameters.record_iv_length
-		content:        []byte{0x02},       //TLSCompressed.length
-		MAC:            []byte{0x03},       //SecurityParameters.mac_length
-		padding:        []byte{0x04, 0x05}, //GenericBlockCipher.padding_length
-		padding_length: 2,
-	}
 	params := SecurityParameters{
 		record_iv_length: 2,
-		mac_length:       1,
+		mac_algorithm: MACAlgorithm{
+			h: sha256.New(),
+		},
+	}
+	ciphered := GenericBlockCipher{
+		IV:             []byte{0x01, 0x01},                        //SecurityParameters.record_iv_length
+		content:        []byte{0x02},                              //TLSCompressed.length
+		MAC:            make([]byte, params.mac_algorithm.Size()), //SecurityParameters.mac_length
+		padding:        []byte{0x04, 0x05},                        //GenericBlockCipher.padding_length
+		padding_length: 2,
 	}
 	c.Assert(GenericBlockCipher{}.UnMarshal(ciphered.Marshal(), params), DeepEquals, ciphered)
 }

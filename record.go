@@ -1,5 +1,7 @@
 package toyls
 
+import "hash"
+
 type ConnectionEnd uint8
 
 const (
@@ -17,7 +19,6 @@ type SecurityParameters struct {
 	fixed_iv_length       uint8
 	record_iv_length      uint8
 	mac_algorithm         MACAlgorithm
-	mac_length            uint8
 	mac_key_length        uint8
 	compression_algorithm CompressionMethod
 	master_secret         [48]byte
@@ -28,7 +29,21 @@ type SecurityParameters struct {
 type PRFAlgorithm interface{}
 type CipherType interface{}
 type BulkCipherAlgorithm interface{}
-type MACAlgorithm interface{}
+type MACAlgorithm struct {
+	h hash.Hash
+}
+
+func (s MACAlgorithm) Size() int {
+	return s.h.Size()
+}
+
+func (s MACAlgorithm) MAC(digestBuf, seq, header, data []byte) []byte {
+	s.h.Reset()
+	s.h.Write(seq)
+	s.h.Write(header)
+	s.h.Write(data)
+	return s.h.Sum(digestBuf[:0])
+}
 
 type CompressionMethod interface {
 	compress([]byte) ([]byte, uint16)
@@ -49,7 +64,7 @@ type ConnectionState struct {
 	compression_state uint8
 	cipher_state      uint8
 	mac_key           []byte
-	sequence_number   uint64
+	sequence_number   [8]byte //uint64
 }
 
 type ContentType uint8
@@ -109,6 +124,10 @@ type TLSCiphertext struct {
 	fragment []byte //TLSCiphertext.length MUST NOT exceed 2^14 + 2048.
 }
 
+func (t TLSCiphertext) header() (ret []byte) {
+	return append(ret[:0], byte(t.contentType), t.version.major, t.version.minor, (byte)(t.length>>8), (byte)(t.length))
+}
+
 type Ciphered interface {
 	Marshal() []byte
 	UnMarshal([]byte, SecurityParameters) Ciphered
@@ -133,8 +152,8 @@ func (c GenericStreamCipher) Marshal() []byte {
 }
 
 func (c GenericStreamCipher) UnMarshal(fragment []byte, params SecurityParameters) GenericStreamCipher {
-	c.content = fragment[:len(fragment)-int(params.mac_length)]
-	c.MAC = fragment[len(fragment)-int(params.mac_length):]
+	c.content = fragment[:len(fragment)-int(params.mac_algorithm.Size())]
+	c.MAC = fragment[len(fragment)-int(params.mac_algorithm.Size()):]
 	return c
 }
 
@@ -160,8 +179,8 @@ func (c GenericBlockCipher) UnMarshal(fragment []byte, params SecurityParameters
 	c.IV = fragment[:params.record_iv_length]
 	c.padding_length = fragment[len(fragment)-1]
 	c.padding = fragment[len(fragment)-1-int(c.padding_length) : len(fragment)-1]
-	c.MAC = fragment[len(fragment)-1-int(c.padding_length)-int(params.mac_length) : len(fragment)-1-int(c.padding_length)]
-	c.content = fragment[params.record_iv_length : len(fragment)-1-int(c.padding_length)-int(params.mac_length)]
+	c.MAC = fragment[len(fragment)-1-int(c.padding_length)-int(params.mac_algorithm.Size()) : len(fragment)-1-int(c.padding_length)]
+	c.content = fragment[params.record_iv_length : len(fragment)-1-int(c.padding_length)-int(params.mac_algorithm.Size())]
 	return c
 }
 

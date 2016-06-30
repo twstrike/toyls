@@ -2,6 +2,8 @@ package toyls
 
 import (
 	"crypto/cipher"
+	"crypto/subtle"
+	"errors"
 	"io"
 )
 
@@ -39,17 +41,22 @@ func (c *Conn) handleCipherText(cipherText TLSCiphertext) (TLSCompressed, error)
 	//TODO: MAC.verify(conn.state.mac_key,cipherText.fragment[:])
 	switch c.params.cipher.(type) {
 	case cipher.Stream:
-		c := GenericStreamCipher{}.UnMarshal(cipherText.fragment, c.params)
-		compressed.length = uint16(len(c.content))
-		compressed.fragment = c.content
+		c.params.cipher.(cipher.Stream).XORKeyStream(cipherText.fragment, cipherText.fragment)
+		ciphered := GenericStreamCipher{}.UnMarshal(cipherText.fragment, c.params)
+		localMAC := c.params.mac_algorithm.MAC(nil, c.state.sequence_number[0:], cipherText.header(), ciphered.content)
+		compressed.length = uint16(len(ciphered.content))
+		compressed.fragment = ciphered.content
+		if subtle.ConstantTimeCompare(localMAC, ciphered.MAC) != 1 {
+			return compressed, errors.New("MAC error")
+		}
 	case cipher.Block:
-		c := GenericBlockCipher{}.UnMarshal(cipherText.fragment, c.params)
-		compressed.length = uint16(len(c.content))
-		compressed.fragment = c.content
+		ciphered := GenericBlockCipher{}.UnMarshal(cipherText.fragment, c.params)
+		compressed.length = uint16(len(ciphered.content))
+		compressed.fragment = ciphered.content
 	case cipher.AEAD:
-		c := GenericAEADCipher{}.UnMarshal(cipherText.fragment, c.params)
-		compressed.length = uint16(len(c.content))
-		compressed.fragment = c.content
+		ciphered := GenericAEADCipher{}.UnMarshal(cipherText.fragment, c.params)
+		compressed.length = uint16(len(ciphered.content))
+		compressed.fragment = ciphered.content
 	}
 	return compressed, nil
 }

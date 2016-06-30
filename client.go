@@ -104,14 +104,6 @@ func receiveHandshakeMessage(m interface{}) interface{} {
 	return nil
 }
 
-func newClientHello() *handshakeMessage {
-	return &handshakeMessage{
-		msgType: clientHelloType,
-		length:  0,
-		body:    &clientHelloBody{},
-	}
-}
-
 func newRandom(r io.Reader) random {
 	t := time.Now().Unix()
 	if t < 0 {

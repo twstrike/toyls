@@ -26,14 +26,7 @@ const (
 
 type handshakeMessage struct {
 	msgType handshakeType
-
-	//This should be uint24, and we should keep track of overflows
-	//Is this always 3 + len(body)?
-	length uint32
-
-	// It depends on msgType
-	// should it be a []byte?
-	body interface{}
+	message []byte
 }
 
 type cipherSuite [2]uint8

@@ -62,6 +62,11 @@ func (s *handshakeServer) sendCertificate() ([]byte, error) {
 	}), nil
 }
 
+func (s *handshakeServer) sendServerKeyExchange() ([]byte, error) {
+	//Our key exchange method does not send this message. Easy ;)
+	return nil, nil
+}
+
 func deserializeServerHello(h []byte) (*serverHelloBody, error) {
 	hello := &serverHelloBody{}
 

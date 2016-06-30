@@ -1,8 +1,18 @@
 package toyls
 
-import "crypto/rand"
+import (
+	"crypto/rand"
+	"crypto/tls"
+)
 
-type handshakeServer struct{}
+type handshakeServer struct {
+	// Certificates contains one or more certificate chains
+	// to present to the other side of the connection.
+	// Server configurations must include at least one certificate
+	// or else set GetCertificate.
+	//XXX Why does tls.Config has an []Certificate?
+	tls.Certificate
+}
 
 func newHandshakeServer() *handshakeServer {
 	return &handshakeServer{}
@@ -31,6 +41,22 @@ func (s *handshakeServer) receiveClientHello(m []byte) ([]byte, error) {
 
 	return serializeHandshakeMessage(&handshakeMessage{
 		serverHelloType, message,
+	}), nil
+}
+
+func (s *handshakeServer) sendCertificate() ([]byte, error) {
+	serverCertificate := &certificateBody{
+		//XXX Should we deep-copy?
+		certificateList: s.Certificate.Certificate,
+	}
+
+	message, err := serializeCertificate(serverCertificate)
+	if err != nil {
+		return nil, err
+	}
+
+	return serializeHandshakeMessage(&handshakeMessage{
+		certificateType, message,
 	}), nil
 }
 

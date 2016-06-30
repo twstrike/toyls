@@ -1,6 +1,35 @@
 package toyls
 
-import . "gopkg.in/check.v1"
+import (
+	"crypto/tls"
+
+	. "gopkg.in/check.v1"
+)
+
+var rsaCertPEM = `-----BEGIN CERTIFICATE-----
+MIIB0zCCAX2gAwIBAgIJAI/M7BYjwB+uMA0GCSqGSIb3DQEBBQUAMEUxCzAJBgNV
+BAYTAkFVMRMwEQYDVQQIDApTb21lLVN0YXRlMSEwHwYDVQQKDBhJbnRlcm5ldCBX
+aWRnaXRzIFB0eSBMdGQwHhcNMTIwOTEyMjE1MjAyWhcNMTUwOTEyMjE1MjAyWjBF
+MQswCQYDVQQGEwJBVTETMBEGA1UECAwKU29tZS1TdGF0ZTEhMB8GA1UECgwYSW50
+ZXJuZXQgV2lkZ2l0cyBQdHkgTHRkMFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBANLJ
+hPHhITqQbPklG3ibCVxwGMRfp/v4XqhfdQHdcVfHap6NQ5Wok/4xIA+ui35/MmNa
+rtNuC+BdZ1tMuVCPFZcCAwEAAaNQME4wHQYDVR0OBBYEFJvKs8RfJaXTH08W+SGv
+zQyKn0H8MB8GA1UdIwQYMBaAFJvKs8RfJaXTH08W+SGvzQyKn0H8MAwGA1UdEwQF
+MAMBAf8wDQYJKoZIhvcNAQEFBQADQQBJlffJHybjDGxRMqaRmDhX0+6v02TUKZsW
+r5QuVbpQhH6u+0UgcW0jp9QwpxoPTLTWGXEWBBBurxFwiCBhkQ+V
+-----END CERTIFICATE-----
+`
+
+var rsaKeyPEM = `-----BEGIN RSA PRIVATE KEY-----
+MIIBOwIBAAJBANLJhPHhITqQbPklG3ibCVxwGMRfp/v4XqhfdQHdcVfHap6NQ5Wo
+k/4xIA+ui35/MmNartNuC+BdZ1tMuVCPFZcCAwEAAQJAEJ2N+zsR0Xn8/Q6twa4G
+6OB1M1WO+k+ztnX/1SvNeWu8D6GImtupLTYgjZcHufykj09jiHmjHx8u8ZZB/o1N
+MQIhAPW+eyZo7ay3lMz1V01WVjNKK9QSn1MJlb06h/LuYv9FAiEA25WPedKgVyCW
+SmUwbPw8fnTcpqDWE3yTO3vKcebqMSsCIBF3UmVue8YU3jybC3NxuXq3wNm34R8T
+xVLHwDXh/6NJAiEAl2oHGGLz64BuAfjKrqwz7qMYr9HCLIe/YsoWq/olzScCIQDi
+D2lWusoe2/nEqfDVVWGWlyJ7yOmqaVm/iNUN9B2N2g==
+-----END RSA PRIVATE KEY-----
+`
 
 func (s *ToySuite) TestSerializeHandshakeMessage(c *C) {
 	m := &handshakeMessage{clientHelloType, []byte{0x01, 0x02, 0x03}}
@@ -87,4 +116,28 @@ func (s *ToySuite) TestReceiveClientHandshake(c *C) {
 		//compression_method
 		0x00, //NULL
 	})
+}
+
+func (s *ToySuite) TestSendServerCertificate(c *C) {
+	pem := []byte(rsaCertPEM + rsaKeyPEM)
+	cert, err := tls.X509KeyPair(pem, pem)
+	c.Assert(err, IsNil)
+	c.Assert(len(cert.Certificate), Equals, 1)
+	c.Assert(len(cert.Certificate[0]), Equals, 0x01d7)
+
+	server := newHandshakeServer()
+	server.Certificate = cert
+	msg, err := server.sendCertificate()
+
+	c.Assert(err, IsNil)
+	c.Assert(msg, DeepEquals, append([]byte{
+		0x0b,             //certificate
+		0x00, 0x01, 0xdd, // length
+
+		//certificate_list
+		0x00, 0x01, 0xda, //length
+
+		//first_certificate
+		0x00, 0x01, 0xd7, //length
+	}, server.Certificate.Certificate[0]...))
 }

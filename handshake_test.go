@@ -141,3 +141,14 @@ func (s *ToySuite) TestSendServerCertificate(c *C) {
 		0x00, 0x01, 0xd7, //length
 	}, server.Certificate.Certificate[0]...))
 }
+
+func (s *ToySuite) TestSendServerHelloDone(c *C) {
+	server := newHandshakeServer()
+	msg, err := server.sendServerHelloDone()
+
+	c.Assert(err, IsNil)
+	c.Assert(msg, DeepEquals, []byte{
+		0x0e,             //certificate
+		0x00, 0x00, 0x00, // length
+	})
+}

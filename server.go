@@ -45,6 +45,8 @@ func (s *handshakeServer) receiveClientHello(m []byte) ([]byte, error) {
 }
 
 func (s *handshakeServer) sendCertificate() ([]byte, error) {
+	//Should have checked if the agreed-upon key exchange method uses
+	//certificates for authentication. For now, our method always supports.
 	serverCertificate := &certificateBody{
 		//XXX Should we deep-copy?
 		certificateList: s.Certificate.Certificate,

@@ -14,7 +14,7 @@ func (s *ToySuite) TestPRF(c *C) {
 }
 
 func (s *ToySuite) TestKeysFromMasterSecret(c *C) {
-	params := SecurityParameters{
+	params := securityParameters{
 		mac_key_length:  1,
 		enc_key_length:  2,
 		fixed_iv_length: 3,

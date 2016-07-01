@@ -18,8 +18,8 @@ func (s *ToySuite) TestTLSCiphertextHeader(c *C) {
 }
 
 func (s *ToySuite) TestGenericStreamCipherMarshalAndUnMarshal(c *C) {
-	params := SecurityParameters{
-		mac_algorithm: MACAlgorithm{
+	params := securityParameters{
+		mac_algorithm: macAlgorithm{
 			h: sha256.New(),
 		},
 	}
@@ -31,9 +31,9 @@ func (s *ToySuite) TestGenericStreamCipherMarshalAndUnMarshal(c *C) {
 }
 
 func (s *ToySuite) TestGenericBlockCipherMarshalAndUnMarshal(c *C) {
-	params := SecurityParameters{
+	params := securityParameters{
 		record_iv_length: 2,
-		mac_algorithm: MACAlgorithm{
+		mac_algorithm: macAlgorithm{
 			h: sha256.New(),
 		},
 	}
@@ -52,7 +52,7 @@ func (s *ToySuite) TestGenericAEADCipherMarshalAndUnMarshal(c *C) {
 		nonce_explicit: []byte{0x02, 0x01}, //SecurityParameters.record_iv_length
 		content:        []byte{0x03},       //TLSCompressed.length
 	}
-	params := SecurityParameters{
+	params := securityParameters{
 		record_iv_length: 2,
 	}
 	c.Assert(GenericAEADCipher{}.UnMarshal(ciphered.Marshal(), params), DeepEquals, ciphered)

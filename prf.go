@@ -38,7 +38,7 @@ func p_hash(result, secret, seed []byte) {
 	}
 }
 
-func keysFromMasterSecret(params SecurityParameters) *WriteParams {
+func keysFromMasterSecret(params securityParameters) *writeParams {
 	seed := make([]byte, 0, len(params.server_random)+len(params.client_random))
 	seed = append(seed, params.server_random[:]...)
 	seed = append(seed, params.client_random[:]...)
@@ -47,7 +47,7 @@ func keysFromMasterSecret(params SecurityParameters) *WriteParams {
 	keyMaterial := make([]byte, n)
 	prf(keyMaterial, params.master_secret[:], keyExpansionLabel, seed)
 
-	w := new(WriteParams)
+	w := new(writeParams)
 	w.clientMAC = keyMaterial[:params.mac_key_length]
 	keyMaterial = keyMaterial[params.mac_key_length:]
 

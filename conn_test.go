@@ -1,13 +1,9 @@
 package toyls
 
-import (
-	"crypto/sha256"
-
-	. "gopkg.in/check.v1"
-)
+import . "gopkg.in/check.v1"
 
 func (s *ToySuite) TestConnHandleFragment(c *C) {
-	conn := Conn{}
+	conn := NewConn()
 	in := &mockConnIOReaderWriter{read: []byte{22, 0x03, 0x01, 0x00, 0x01, 0x00}}
 	cipherText, _ := conn.handleFragment(in)
 
@@ -18,14 +14,7 @@ func (s *ToySuite) TestConnHandleFragment(c *C) {
 }
 
 func (s *ToySuite) TestConnHandleCipherText(c *C) {
-	conn := Conn{
-		params: SecurityParameters{
-			cipher: mockStreamCipher{},
-			mac_algorithm: MACAlgorithm{
-				h: sha256.New(),
-			},
-		},
-	}
+	conn := NewConn()
 	ciphered := GenericStreamCipher{
 		content: []byte{0x01, 0x02}, //TLSCompressed.length
 	}
@@ -45,22 +34,14 @@ func (s *ToySuite) TestConnHandleCipherText(c *C) {
 	c.Assert(compressed.fragment, DeepEquals, []byte{0x01, 0x02})
 }
 
-type mockStreamCipher struct{}
-
-func (mockStreamCipher) XORKeyStream(dst, src []byte) {
-	return
-}
-
 func (s *ToySuite) TestConnHandleCompressed(c *C) {
-	conn := Conn{}
+	conn := NewConn()
 	compressed := TLSCompressed{
 		contentType: HANDSHAKE,
 		version:     VersionTLS12,
 		length:      3,
 		fragment:    []byte{0x01, 0x02, 0x03},
 	}
-	conn.params = SecurityParameters{}
-	conn.params.compression_algorithm = nullCompressionMethod{}
 	plaintext, _ := conn.handleCompressed(compressed)
 
 	c.Assert(plaintext.contentType, Equals, HANDSHAKE)
@@ -70,14 +51,7 @@ func (s *ToySuite) TestConnHandleCompressed(c *C) {
 }
 
 func (s *ToySuite) TestConnMacAndEncrypt(c *C) {
-	conn := Conn{
-		params: SecurityParameters{
-			cipher: mockStreamCipher{},
-			mac_algorithm: MACAlgorithm{
-				h: sha256.New(),
-			},
-		},
-	}
+	conn := NewConn()
 	compressed := TLSCompressed{
 		contentType: HANDSHAKE,
 		version:     VersionTLS12,

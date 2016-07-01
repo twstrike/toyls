@@ -2,14 +2,29 @@ package toyls
 
 import (
 	"crypto/cipher"
+	"crypto/sha256"
 	"crypto/subtle"
 	"errors"
 	"io"
 )
 
 type Conn struct {
-	state  ConnectionState
-	params SecurityParameters
+	state  connectionState
+	params securityParameters
+}
+
+func NewConn() *Conn {
+
+	conn := Conn{
+		params: securityParameters{
+			cipher: nullStreamCipher{},
+			mac_algorithm: macAlgorithm{
+				h: sha256.New(),
+			},
+			compression_algorithm: nullCompressionMethod{},
+		},
+	}
+	return &conn
 }
 
 func (c *Conn) send(plain TLSPlaintext) []byte {

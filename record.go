@@ -2,42 +2,49 @@ package toyls
 
 import "hash"
 
-type ConnectionEnd uint8
+type connectionEnd uint8
 
 const (
-	SERVER ConnectionEnd = 0
+	SERVER connectionEnd = 0
 	CLIENT               = 1
 )
 
-type SecurityParameters struct {
-	entity                ConnectionEnd
-	prf_algorithm         PRFAlgorithm
-	bulk_cipher_algorithm BulkCipherAlgorithm
-	cipher                CipherType
+type securityParameters struct {
+	entity                connectionEnd
+	prf_algorithm         prfAlgorithm
+	bulk_cipher_algorithm bulkCipherAlgorithm
+	cipher                cipherType
 	enc_key_length        uint8
 	block_length          uint8
 	fixed_iv_length       uint8
 	record_iv_length      uint8
-	mac_algorithm         MACAlgorithm
+	mac_algorithm         macAlgorithm
 	mac_key_length        uint8
-	compression_algorithm CompressionMethod
+	compression_algorithm compressionMethod
 	master_secret         [48]byte
 	client_random         [32]byte
 	server_random         [32]byte
 }
 
-type PRFAlgorithm interface{}
-type CipherType interface{}
-type BulkCipherAlgorithm interface{}
-type MACAlgorithm struct {
+type prfAlgorithm interface{}
+type cipherType interface{}
+
+type nullStreamCipher struct{}
+
+func (nullStreamCipher) XORKeyStream(dst, src []byte) {
+	return
+}
+
+type bulkCipherAlgorithm interface{}
+type macAlgorithm struct {
 	h hash.Hash
 }
 
-func (s MACAlgorithm) Size() int {
+func (s macAlgorithm) Size() int {
 	return s.h.Size()
 }
 
-func (s MACAlgorithm) MAC(digestBuf, seq, header, data []byte) []byte {
+func (s macAlgorithm) MAC(digestBuf, seq, header, data []byte) []byte {
 	s.h.Reset()
 	s.h.Write(seq)
 	s.h.Write(header)
@@ -45,7 +52,7 @@ func (s MACAlgorithm) MAC(digestBuf, seq, header, data []byte) []byte {
 	return s.h.Sum(digestBuf[:0])
 }
 
-type CompressionMethod interface {
+type compressionMethod interface {
 	compress([]byte) ([]byte, uint16)
 	decompress([]byte) ([]byte, uint16)
 }
@@ -60,7 +67,7 @@ func (nullCompressionMethod) decompress(compressed []byte) ([]byte, uint16) {
 	return compressed, uint16(len(compressed))
 }
 
-type ConnectionState struct {
+type connectionState struct {
 	compression_state uint8
 	cipher_state      uint8
 	mac_key           []byte
@@ -89,7 +96,7 @@ var (
 	VersionTLS12 = protocolVersion{0x03, 0x03}
 )
 
-type WriteParams struct {
+type writeParams struct {
 	clientMAC,
 	serverMAC,
 	clientKey,
@@ -140,7 +147,7 @@ func (t TLSCiphertext) header() (ret []byte) {
 
 type Ciphered interface {
 	Marshal() []byte
-	UnMarshal([]byte, SecurityParameters) Ciphered
+	UnMarshal([]byte, securityParameters) Ciphered
 	Content() []byte
 	Mac() []byte
 }
@@ -163,7 +170,7 @@ func (c GenericStreamCipher) Marshal() []byte {
 	return ret
 }
 
-func (c GenericStreamCipher) UnMarshal(fragment []byte, params SecurityParameters) Ciphered {
+func (c GenericStreamCipher) UnMarshal(fragment []byte, params securityParameters) Ciphered {
 	c.content = fragment[:len(fragment)-int(params.mac_algorithm.Size())]
 	c.MAC = fragment[len(fragment)-int(params.mac_algorithm.Size()):]
 	return c
@@ -195,7 +202,7 @@ func (c GenericBlockCipher) Marshal() []byte {
 	return ret
 }
 
-func (c GenericBlockCipher) UnMarshal(fragment []byte, params SecurityParameters) Ciphered {
+func (c GenericBlockCipher) UnMarshal(fragment []byte, params securityParameters) Ciphered {
 	c.IV = fragment[:params.record_iv_length]
 	c.padding_length = fragment[len(fragment)-1]
 	c.padding = fragment[len(fragment)-1-int(c.padding_length) : len(fragment)-1]
@@ -224,7 +231,7 @@ func (c GenericAEADCipher) Marshal() []byte {
 	return ret
 }
 
-func (c GenericAEADCipher) UnMarshal(fragment []byte, params SecurityParameters) Ciphered {
+func (c GenericAEADCipher) UnMarshal(fragment []byte, params securityParameters) Ciphered {
 	c.nonce_explicit = fragment[:params.record_iv_length]
 	c.content = fragment[params.record_iv_length:]
 	return c

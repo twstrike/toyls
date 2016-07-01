@@ -2,6 +2,7 @@ package toyls
 
 import (
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 )
@@ -38,6 +39,37 @@ func (c *handshakeClient) sendClientHello() ([]byte, error) {
 	}), nil
 }
 
+func (c *handshakeClient) receiveCertificateRequest() {
+	//Should save the certificateRequest, and only send the message after
+	//receiving a helloDone
+	c.shouldSendCertificate = true
+}
+
+func (c *handshakeClient) sendCertificate() ([]byte, error) {
+	if !c.shouldSendCertificate {
+		return nil, nil
+	}
+
+	return sendCertificate(c.Certificate)
+}
+
+func (c *handshakeClient) sendClientKeyExchange() ([]byte, error) {
+	pub := c.serverCertificate.PublicKey.(*rsa.PublicKey)
+	preMasterSecret, err := generateEncryptedPreMasterSecret(pub)
+	if err != nil {
+		return nil, err
+	}
+
+	message, err := serializeEncryptedPreMasterSecret(preMasterSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	return serializeHandshakeMessage(&handshakeMessage{
+		clientKeyExchangeType, message,
+	}), nil
+}
+
 func (c *handshakeClient) receiveCertificate(cert []byte) error {
 	certMsg, err := deserializeCertificate(cert)
 	if err != nil {
@@ -53,6 +85,16 @@ func (c *handshakeClient) receiveCertificate(cert []byte) error {
 	//XXX Validate certificates
 
 	return nil
+}
+
+func (c *handshakeClient) receiveServerHelloDone() ([][]byte, error) {
+	certificateMsg, err := c.sendCertificate()
+	if err != nil {
+		return nil, err
+	}
+
+	clientKeyExchange, err := c.sendClientKeyExchange()
+	return zip(certificateMsg, clientKeyExchange), err
 }
 
 func deserializeClientHello(h []byte) (*clientHelloBody, error) {

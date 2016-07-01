@@ -1,6 +1,9 @@
 package toyls
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/tls"
 	"io"
 	"time"
 )
@@ -151,6 +154,43 @@ func sendCertificate(cert tls.Certificate) ([]byte, error) {
 	}), nil
 }
 
+//See: 7.4.7.1.  RSA-Encrypted Premaster Secret Message
+func generateEncryptedPreMasterSecret(pub *rsa.PublicKey) (*encryptedPreMasterSecretBody, error) {
+	preMasterSecret, err := generatePreMasterSecret(rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+
+	msg, err := serializePreMasterSecret(preMasterSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	out, err := rsa.EncryptPKCS1v15(rand.Reader, pub, msg)
+
+	return &encryptedPreMasterSecretBody{out}, nil
+}
+func generatePreMasterSecret(r io.Reader) (*preMasterSecret, error) {
+	s := &preMasterSecret{
+		clientVersion: VersionTLS12,
+	}
+
+	_, err := io.ReadFull(r, s.random[:])
+	return s, err
+}
+
+func serializePreMasterSecret(s *preMasterSecret) ([]byte, error) {
+	dst := make([]byte, 0, 48)
+	dst = append(dst, s.clientVersion.major, s.clientVersion.minor)
+	return append(dst, s.random[:]...), nil
+}
+
+func serializeEncryptedPreMasterSecret(s *encryptedPreMasterSecretBody) ([]byte, error) {
+	dst := make([]byte, len(s.preMasterSecret))
+	copy(dst, s.preMasterSecret)
+	return dst, nil
+}
+
 func newRandom(r io.Reader) random {
 	t := time.Now().Unix()
 	if t < 0 {
@@ -164,4 +204,15 @@ func newRandom(r io.Reader) random {
 	io.ReadFull(r, rand.randomBytes[:])
 
 	return rand
+}
+
+func zip(pieces ...[]byte) [][]byte {
+	dst := make([][]byte, 0, len(pieces))
+	for _, piece := range pieces {
+		if piece != nil {
+			dst = append(dst, piece)
+		}
+	}
+
+	return dst
 }

@@ -1,8 +1,10 @@
 package toyls
 
 import (
+	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
+	"crypto/x509"
 	"math/big"
 
 	. "gopkg.in/check.v1"
@@ -175,4 +177,62 @@ func (s *ToySuite) TestClientReceiveCertificate(c *C) {
 	N, _ := new(big.Int).SetString("11039820657256452003913656064557961126179702514896670737880652733596162313661107826253104929160502888790764217270630803784428812117224413374534909340620183", 10)
 	serverPublicKey := &rsa.PublicKey{N: N, E: 65537}
 	c.Assert(client.serverCertificate.PublicKey, DeepEquals, serverPublicKey)
+}
+
+func (s *ToySuite) TestClientReceiveServerHelloDone(c *C) {
+	pem := []byte(rsaCertPEM + rsaKeyPEM)
+	serverCertificate, err := tls.X509KeyPair(pem, pem)
+	c.Assert(err, IsNil)
+
+	client := newHandshakeClient()
+	client.serverCertificate, _ = x509.ParseCertificate(serverCertificate.Certificate[0])
+
+	toSend, err := client.receiveServerHelloDone()
+	c.Assert(err, IsNil)
+	c.Assert(len(toSend), Equals, 1)
+
+	encryptedPreMasterKey := deserializeHandshakeMessage(toSend[0])
+
+	secretKey := serverCertificate.PrivateKey.(*rsa.PrivateKey)
+	preMasterSecret, err := rsa.DecryptPKCS1v15(rand.Reader, secretKey, encryptedPreMasterKey.message)
+
+	c.Assert(err, IsNil)
+	c.Assert(len(preMasterSecret), Equals, 48)
+	c.Assert(preMasterSecret[:2], DeepEquals, []byte{0x03, 0x03})
+}
+
+func (s *ToySuite) TestClientReceiveCertificateRequestAndServerHelloDone(c *C) {
+	pem := []byte(rsaCertPEM + rsaKeyPEM)
+	serverCertificate, err := tls.X509KeyPair(pem, pem)
+	c.Assert(err, IsNil)
+
+	client := newHandshakeClient()
+	client.serverCertificate, _ = x509.ParseCertificate(serverCertificate.Certificate[0])
+
+	client.Certificate = serverCertificate //Will use the same, just for convenience
+	client.receiveCertificateRequest()
+
+	toSend, err := client.receiveServerHelloDone()
+	c.Assert(err, IsNil)
+	c.Assert(len(toSend), Equals, 2)
+
+	c.Assert(toSend[0], DeepEquals, append([]byte{
+		0x0b,             //certificate
+		0x00, 0x01, 0xdd, //length
+
+		//certificate_list
+		0x00, 0x01, 0xda, //length
+
+		//first_certificate
+		0x00, 0x01, 0xd7, //length
+	}, client.Certificate.Certificate[0]...))
+
+	encryptedPreMasterKey := deserializeHandshakeMessage(toSend[1])
+
+	secretKey := serverCertificate.PrivateKey.(*rsa.PrivateKey)
+	preMasterSecret, err := rsa.DecryptPKCS1v15(rand.Reader, secretKey, encryptedPreMasterKey.message)
+
+	c.Assert(err, IsNil)
+	c.Assert(len(preMasterSecret), Equals, 48)
+	c.Assert(preMasterSecret[:2], DeepEquals, []byte{0x03, 0x03})
 }

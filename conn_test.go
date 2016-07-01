@@ -4,8 +4,9 @@ import . "gopkg.in/check.v1"
 
 func (s *ToySuite) TestConnHandleFragment(c *C) {
 	conn := NewConn()
-	in := &mockConnIOReaderWriter{read: []byte{22, 0x03, 0x01, 0x00, 0x01, 0x00}}
-	cipherText, _ := conn.handleFragment(in)
+	in := []byte{22, 0x03, 0x01, 0x00, 0x01, 0x00, 22, 0x03, 0x01, 0x00, 0x01, 0x00}
+	cipherText, in, _ := conn.handleFragment(in)
+	cipherText, in, _ = conn.handleFragment(in)
 
 	c.Assert(cipherText.contentType, Equals, HANDSHAKE)
 	c.Assert(cipherText.version, Equals, VersionTLS10)

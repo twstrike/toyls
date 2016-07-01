@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"errors"
-	"io"
 )
 
 type Conn struct {
@@ -14,7 +13,6 @@ type Conn struct {
 }
 
 func NewConn() *Conn {
-
 	conn := Conn{
 		params: securityParameters{
 			cipher: nullStreamCipher{},
@@ -33,26 +31,29 @@ func (c *Conn) send(plain TLSPlaintext) []byte {
 	return cipherText.serialize()
 }
 
-func (c *Conn) receive(in io.Reader) TLSPlaintext {
-	cipherText, _ := c.handleFragment(in)
-	switch cipherText.contentType {
-
+func (c *Conn) receive(payload []byte) {
+	var cipherText TLSCiphertext
+	for len(payload) > 0 {
+		cipherText, payload, _ = c.handleFragment(payload)
+		compressed, _ := c.handleCipherText(cipherText)
+		plaintext, _ := c.handleCompressed(compressed)
+		c.handlePlainText(plaintext)
 	}
-	compressed, _ := c.handleCipherText(cipherText)
-	plaintext, _ := c.handleCompressed(compressed)
-	return plaintext
+	return
 }
 
-func (c *Conn) handleFragment(in io.Reader) (TLSCiphertext, error) {
+func (c *Conn) handleFragment(payload []byte) (TLSCiphertext, []byte, error) {
 	cipherText := TLSCiphertext{}
 	header := make([]byte, 5)
-	in.Read(header)
+	n := copy(header, payload)
+	payload = payload[n:]
 	cipherText.contentType = ContentType(header[0])
 	cipherText.version, header = extractProtocolVersion(header[1:])
 	cipherText.length, header = extractUint16(header)
 	cipherText.fragment = make([]byte, cipherText.length)
-	in.Read(cipherText.fragment)
-	return cipherText, nil
+	n = copy(cipherText.fragment, payload)
+	payload = payload[n:]
+	return cipherText, payload, nil
 }
 
 func (c *Conn) handleCipherText(cipherText TLSCiphertext) (TLSCompressed, error) {
@@ -120,4 +121,9 @@ func (c *Conn) compress(plaintext TLSPlaintext) (TLSCompressed, error) {
 	compressed.version = plaintext.version
 	compressed.fragment, compressed.length = c.params.compression_algorithm.compress(plaintext.fragment)
 	return compressed, nil
+}
+
+func (c *Conn) handlePlainText(plaintext TLSPlaintext) {
+	//TODO: to be implemented
+	return
 }

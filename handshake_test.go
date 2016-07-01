@@ -1,7 +1,9 @@
 package toyls
 
 import (
+	"crypto/rsa"
 	"crypto/tls"
+	"math/big"
 
 	. "gopkg.in/check.v1"
 )
@@ -151,4 +153,26 @@ func (s *ToySuite) TestSendServerHelloDone(c *C) {
 		0x0e,             //certificate
 		0x00, 0x00, 0x00, // length
 	})
+}
+
+func (s *ToySuite) TestClientReceiveCertificate(c *C) {
+	client := newHandshakeClient()
+	server := newHandshakeServer()
+
+	pem := []byte(rsaCertPEM + rsaKeyPEM)
+	serverCertificate, err := tls.X509KeyPair(pem, pem)
+	c.Assert(err, IsNil)
+
+	server.Certificate = serverCertificate
+	msg, err := server.sendCertificate()
+	c.Assert(err, IsNil)
+
+	certificateMsg := deserializeHandshakeMessage(msg)
+	err = client.receiveCertificate(certificateMsg.message)
+	c.Assert(err, IsNil)
+	c.Assert(client.serverCertificate.Raw, DeepEquals, serverCertificate.Certificate[0])
+
+	N, _ := new(big.Int).SetString("11039820657256452003913656064557961126179702514896670737880652733596162313661107826253104929160502888790764217270630803784428812117224413374534909340620183", 10)
+	serverPublicKey := &rsa.PublicKey{N: N, E: 65537}
+	c.Assert(client.serverCertificate.PublicKey, DeepEquals, serverPublicKey)
 }

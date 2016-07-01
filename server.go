@@ -25,6 +25,7 @@ func (s *handshakeServer) receiveClientHello(m []byte) ([]byte, error) {
 	}
 
 	//TODO: check all things and return error if we cant agree
+	//TODO: store what we have agreed
 
 	serverHello := &serverHelloBody{
 		serverVersion:     VersionTLS12, //If supported by the client

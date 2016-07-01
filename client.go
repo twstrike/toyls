@@ -2,11 +2,16 @@ package toyls
 
 import (
 	"crypto/rand"
-	"io"
-	"time"
+	"crypto/tls"
+	"crypto/x509"
 )
 
-type handshakeClient struct{}
+type handshakeClient struct {
+	tls.Certificate
+	serverCertificate *x509.Certificate
+
+	shouldSendCertificate bool
+}
 
 func newHandshakeClient() *handshakeClient {
 	return &handshakeClient{}
@@ -31,6 +36,23 @@ func (c *handshakeClient) sendClientHello() ([]byte, error) {
 	return serializeHandshakeMessage(&handshakeMessage{
 		clientHelloType, message,
 	}), nil
+}
+
+func (c *handshakeClient) receiveCertificate(cert []byte) error {
+	certMsg, err := deserializeCertificate(cert)
+	if err != nil {
+		return err
+	}
+
+	//XXX We get only the first certificate
+	c.serverCertificate, err = x509.ParseCertificate(certMsg.certificateList[0])
+	if err != nil {
+		return err
+	}
+
+	//XXX Validate certificates
+
+	return nil
 }
 
 func deserializeClientHello(h []byte) (*clientHelloBody, error) {
@@ -119,19 +141,4 @@ func receiveHandshakeMessage(m interface{}) interface{} {
 	}
 
 	return nil
-}
-
-func newRandom(r io.Reader) random {
-	t := time.Now().Unix()
-	if t < 0 {
-		panic("Wrong time")
-	}
-
-	rand := random{
-		gmtUnixTime: uint32(t),
-	}
-
-	io.ReadFull(r, rand.randomBytes[:])
-
-	return rand
 }

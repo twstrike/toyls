@@ -1,5 +1,10 @@
 package toyls
 
+import (
+	"io"
+	"time"
+)
+
 // See 5246, section 7.  The TLS Handshaking Protocols
 
 // The Handshake Protocol is responsible for negotiating a session
@@ -127,4 +132,19 @@ func deserializeHandshakeMessage(m []byte) *handshakeMessage {
 		msgType: handshakeType(msgType),
 		message: message,
 	}
+}
+
+func newRandom(r io.Reader) random {
+	t := time.Now().Unix()
+	if t < 0 {
+		panic("Wrong time")
+	}
+
+	rand := random{
+		gmtUnixTime: uint32(t),
+	}
+
+	io.ReadFull(r, rand.randomBytes[:])
+
+	return rand
 }

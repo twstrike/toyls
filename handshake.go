@@ -134,6 +134,23 @@ func deserializeHandshakeMessage(m []byte) *handshakeMessage {
 	}
 }
 
+func sendCertificate(cert tls.Certificate) ([]byte, error) {
+	//XXX I think this is wrong. It should be a list of certificateChains, maybe.
+	body := &certificateBody{
+		//XXX Should we deep-copy?
+		certificateList: cert.Certificate,
+	}
+
+	message, err := serializeCertificate(body)
+	if err != nil {
+		return nil, err
+	}
+
+	return serializeHandshakeMessage(&handshakeMessage{
+		certificateType, message,
+	}), nil
+}
+
 func newRandom(r io.Reader) random {
 	t := time.Now().Unix()
 	if t < 0 {

@@ -41,7 +41,7 @@ func (s *ToySuite) TestGenericBlockCipherMarshalAndUnMarshal(c *C) {
 		IV:             []byte{0x01, 0x01},                       //SecurityParameters.record_iv_length
 		content:        []byte{0x02},                             //TLSCompressed.length
 		MAC:            make([]byte, params.macAlgorithm.Size()), //SecurityParameters.mac_length
-		padding:        []byte{0x04, 0x05},                       //GenericBlockCipher.padding_length
+		padding:        []byte{0x02, 0x02},                       //GenericBlockCipher.padding_length
 		padding_length: 2,
 	}
 	c.Assert(GenericBlockCipher{}.UnMarshal(ciphered.Marshal(), params), DeepEquals, ciphered)

@@ -219,6 +219,10 @@ func (c GenericBlockCipher) Mac() []byte {
 	return c.MAC
 }
 
+func (c *GenericBlockCipher) SetIV(IV []byte) {
+	copy(c.IV, IV)
+}
+
 type GenericAEADCipher struct {
 	nonce_explicit []byte //SecurityParameters.record_iv_length
 	content        []byte //TLSCompressed.length

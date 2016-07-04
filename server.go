@@ -14,6 +14,8 @@ type handshakeServer struct {
 	//XXX Why does tls.Config has an []Certificate?
 	tls.Certificate
 
+	clientRandom, serverRandom [32]byte
+	preMasterSecret            []byte
 	bytes.Buffer
 }
 
@@ -22,17 +24,25 @@ func newHandshakeServer() *handshakeServer {
 }
 
 func (s *handshakeServer) receiveClientHello(m []byte) ([]byte, error) {
-	_, err := deserializeClientHello(m)
+	clientHello, err := deserializeClientHello(m)
 	if err != nil {
 		return nil, err
 	}
 
+	serializeRandom(s.clientRandom[:], &clientHello.random)
+	s.Write(m)
+
 	//TODO: check all things and return error if we cant agree
 	//TODO: store what we have agreed
 
+	return s.sendServerHello()
+}
+
+func (s *handshakeServer) sendServerHello() ([]byte, error) {
+	serverRandom := newRandom(rand.Reader)
 	serverHello := &serverHelloBody{
 		serverVersion:     VersionTLS12, //If supported by the client
-		random:            newRandom(rand.Reader),
+		random:            serverRandom,
 		sessionID:         nil,                     // we dont support session resume
 		cipherSuite:       cipherSuite{0x00, 0x2f}, //If supported by the client
 		compressionMethod: 0x00,                    //Is supported by the client
@@ -42,6 +52,9 @@ func (s *handshakeServer) receiveClientHello(m []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	serializeRandom(s.serverRandom[:], &serverRandom)
+	s.Write(message)
 
 	return serializeHandshakeMessage(&handshakeMessage{
 		serverHelloType, message,
@@ -56,11 +69,13 @@ func (s *handshakeServer) sendCertificate() ([]byte, error) {
 
 func (s *handshakeServer) sendServerKeyExchange() ([]byte, error) {
 	//Our key exchange method does not send this message. Easy ;)
+	//s.Write(m)
 	return nil, nil
 }
 
 func (s *handshakeServer) sendCertificateRequest() ([]byte, error) {
 	//Not supported, for now. Easy ;)
+	//s.Write(m)
 	return nil, nil
 }
 
@@ -69,6 +84,33 @@ func (s *handshakeServer) sendServerHelloDone() ([]byte, error) {
 		serverHelloDoneType, nil,
 	}), nil
 }
+
+// func receiveCertificate()
+// func receiveClientKeyExchange()
+// func receiveCertificateVerify()
+
+func (s *handshakeServer) receiveFinished(m []byte) error {
+	s.Write(m)
+
+	//TODO
+	return nil
+}
+
+func (s *handshakeServer) sendFinished() ([]byte, error) {
+	//XXX This is exactly the same as the client. Should it be?
+	//TODO: Store preMasterSecret, clientRandom, serverRandom
+	masterSecret := computeMasterSecret(s.preMasterSecret[:], s.clientRandom[:], s.serverRandom[:])
+	verifyData, err := generateVerifyData(masterSecret[:], clientFinished, &s.Buffer)
+	if err != nil {
+		return nil, err
+	}
+
+	return serializeHandshakeMessage(&handshakeMessage{
+		finishedType, verifyData,
+	}), nil
+}
+
+// Serialize
 
 func deserializeServerHello(h []byte) (*serverHelloBody, error) {
 	hello := &serverHelloBody{}

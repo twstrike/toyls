@@ -3,8 +3,10 @@ package toyls
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/tls"
 	"io"
+	"io/ioutil"
 	"time"
 )
 
@@ -220,9 +222,20 @@ func computeMasterSecret(preMasterSecret, clientRandom, serverRandom []byte) [48
 	return out
 }
 
-func generateVerifyData(masterSecret, finishedLabel []byte, handshakeMessages io.Reader) ([]byte, error) {
-	//TODO
-	return nil, nil
+func generateVerifyData(masterSecret []byte, finishedLabel string, handshakeReader io.Reader) ([]byte, error) {
+	handshakeMessages, err := ioutil.ReadAll(handshakeReader)
+	if err != nil {
+		return nil, err
+	}
+
+	hash := sha256.New()
+	hash.Write(handshakeMessages)
+	messagesHash := hash.Sum(nil)
+
+	dst := make([]byte, 12)
+	prf(dst, masterSecret, finishedLabel, messagesHash)
+
+	return dst, nil
 }
 
 func zip(pieces ...[]byte) [][]byte {

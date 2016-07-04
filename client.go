@@ -9,8 +9,8 @@ import (
 	"fmt"
 )
 
-var (
-	clientFinished = []byte("client finished")
+const (
+	clientFinished = "client finished"
 )
 
 type handshakeClient struct {

@@ -16,10 +16,10 @@ func NewConn() *Conn {
 	conn := Conn{
 		params: securityParameters{
 			cipher: nullStreamCipher{},
-			mac_algorithm: macAlgorithm{
+			macAlgorithm: macAlgorithm{
 				h: sha256.New(),
 			},
-			compression_algorithm: nullCompressionMethod{},
+			compressionAlgorithm: nullCompressionMethod{},
 		},
 	}
 	return &conn
@@ -73,7 +73,7 @@ func (c *Conn) handleCipherText(cipherText TLSCiphertext) (TLSCompressed, error)
 		ciphered = GenericAEADCipher{}.UnMarshal(cipherText.fragment, c.params)
 		break
 	}
-	localMAC := c.params.mac_algorithm.MAC(nil, c.state.sequence_number[0:], cipherText.header(), ciphered.Content())
+	localMAC := c.params.macAlgorithm.MAC(nil, c.state.sequenceNumber[0:], cipherText.header(), ciphered.Content())
 	remoteMAC := ciphered.Mac()
 	if subtle.ConstantTimeCompare(localMAC, remoteMAC) != 1 {
 		return compressed, errors.New("MAC error")
@@ -87,7 +87,7 @@ func (c *Conn) macAndEncrypt(compressed TLSCompressed) (TLSCiphertext, error) {
 	cipherText := TLSCiphertext{
 		contentType: compressed.contentType,
 		version:     compressed.version,
-		length:      uint16(len(compressed.fragment) + c.params.mac_algorithm.Size()),
+		length:      uint16(len(compressed.fragment) + c.params.macAlgorithm.Size()),
 	}
 	var ciphered Ciphered
 
@@ -95,7 +95,7 @@ func (c *Conn) macAndEncrypt(compressed TLSCompressed) (TLSCiphertext, error) {
 	case cipher.Stream:
 		ciphered = GenericStreamCipher{
 			content: compressed.fragment, //TLSCompressed.length
-			MAC:     c.params.mac_algorithm.MAC(nil, c.state.sequence_number[0:], cipherText.header(), compressed.fragment),
+			MAC:     c.params.macAlgorithm.MAC(nil, c.state.sequenceNumber[0:], cipherText.header(), compressed.fragment),
 		}
 		cipherText.fragment = ciphered.Marshal()
 		c.params.cipher.(cipher.Stream).XORKeyStream(cipherText.fragment, cipherText.fragment)
@@ -111,7 +111,7 @@ func (c *Conn) handleCompressed(compressed TLSCompressed) (TLSPlaintext, error) 
 	plaintext := TLSPlaintext{}
 	plaintext.contentType = compressed.contentType
 	plaintext.version = compressed.version
-	plaintext.fragment, plaintext.length = c.params.compression_algorithm.decompress(compressed.fragment)
+	plaintext.fragment, plaintext.length = c.params.compressionAlgorithm.decompress(compressed.fragment)
 	return plaintext, nil
 }
 
@@ -119,7 +119,7 @@ func (c *Conn) compress(plaintext TLSPlaintext) (TLSCompressed, error) {
 	compressed := TLSCompressed{}
 	compressed.contentType = plaintext.contentType
 	compressed.version = plaintext.version
-	compressed.fragment, compressed.length = c.params.compression_algorithm.compress(plaintext.fragment)
+	compressed.fragment, compressed.length = c.params.compressionAlgorithm.compress(plaintext.fragment)
 	return compressed, nil
 }
 

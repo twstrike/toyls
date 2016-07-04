@@ -22,9 +22,9 @@ func (s *ToySuite) TestConnHandleCipherText(c *C) {
 	cipherText := TLSCiphertext{
 		contentType: HANDSHAKE,
 		version:     VersionTLS12,
-		length:      uint16(len(ciphered.content) + conn.params.mac_algorithm.Size()),
+		length:      uint16(len(ciphered.content) + conn.params.macAlgorithm.Size()),
 	}
-	ciphered.MAC = conn.params.mac_algorithm.MAC(nil, conn.state.sequence_number[0:], cipherText.header(), ciphered.content)
+	ciphered.MAC = conn.params.macAlgorithm.MAC(nil, conn.state.sequenceNumber[0:], cipherText.header(), ciphered.content)
 	cipherText.fragment = ciphered.Marshal()
 	compressed, err := conn.handleCipherText(cipherText)
 

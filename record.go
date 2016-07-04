@@ -10,20 +10,20 @@ const (
 )
 
 type securityParameters struct {
-	entity                connectionEnd
-	prf_algorithm         prfAlgorithm
-	bulk_cipher_algorithm bulkCipherAlgorithm
-	cipher                cipherType
-	enc_key_length        uint8
-	block_length          uint8
-	fixed_iv_length       uint8
-	record_iv_length      uint8
-	mac_algorithm         macAlgorithm
-	mac_key_length        uint8
-	compression_algorithm compressionMethod
-	master_secret         [48]byte
-	client_random         [32]byte
-	server_random         [32]byte
+	entity               connectionEnd
+	prfAlgorithm         prfAlgorithm
+	bulkCipherAlgorithm  bulkCipherAlgorithm
+	cipher               cipherType
+	encKeyLength         uint8
+	blockLength          uint8
+	fixedIVLength        uint8
+	recordIVLength       uint8
+	macAlgorithm         macAlgorithm
+	macKeyLength         uint8
+	compressionAlgorithm compressionMethod
+	masterSecret         [48]byte
+	clientRandom         [32]byte
+	serverRandom         [32]byte
 }
 
 type prfAlgorithm interface{}
@@ -68,10 +68,10 @@ func (nullCompressionMethod) decompress(compressed []byte) ([]byte, uint16) {
 }
 
 type connectionState struct {
-	compression_state uint8
-	cipher_state      uint8
-	mac_key           []byte
-	sequence_number   [8]byte //uint64
+	compressionState uint8
+	cipherState      uint8
+	macKey           []byte
+	sequenceNumber   [8]byte //uint64
 }
 
 type ContentType uint8
@@ -171,8 +171,8 @@ func (c GenericStreamCipher) Marshal() []byte {
 }
 
 func (c GenericStreamCipher) UnMarshal(fragment []byte, params securityParameters) Ciphered {
-	c.content = fragment[:len(fragment)-int(params.mac_algorithm.Size())]
-	c.MAC = fragment[len(fragment)-int(params.mac_algorithm.Size()):]
+	c.content = fragment[:len(fragment)-int(params.macAlgorithm.Size())]
+	c.MAC = fragment[len(fragment)-int(params.macAlgorithm.Size()):]
 	return c
 }
 
@@ -203,11 +203,11 @@ func (c GenericBlockCipher) Marshal() []byte {
 }
 
 func (c GenericBlockCipher) UnMarshal(fragment []byte, params securityParameters) Ciphered {
-	c.IV = fragment[:params.record_iv_length]
+	c.IV = fragment[:params.recordIVLength]
 	c.padding_length = fragment[len(fragment)-1]
 	c.padding = fragment[len(fragment)-1-int(c.padding_length) : len(fragment)-1]
-	c.MAC = fragment[len(fragment)-1-int(c.padding_length)-int(params.mac_algorithm.Size()) : len(fragment)-1-int(c.padding_length)]
-	c.content = fragment[params.record_iv_length : len(fragment)-1-int(c.padding_length)-int(params.mac_algorithm.Size())]
+	c.MAC = fragment[len(fragment)-1-int(c.padding_length)-int(params.macAlgorithm.Size()) : len(fragment)-1-int(c.padding_length)]
+	c.content = fragment[params.recordIVLength : len(fragment)-1-int(c.padding_length)-int(params.macAlgorithm.Size())]
 	return c
 }
 
@@ -232,8 +232,8 @@ func (c GenericAEADCipher) Marshal() []byte {
 }
 
 func (c GenericAEADCipher) UnMarshal(fragment []byte, params securityParameters) Ciphered {
-	c.nonce_explicit = fragment[:params.record_iv_length]
-	c.content = fragment[params.record_iv_length:]
+	c.nonce_explicit = fragment[:params.recordIVLength]
+	c.content = fragment[params.recordIVLength:]
 	return c
 }
 

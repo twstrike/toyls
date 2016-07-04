@@ -19,29 +19,29 @@ func (s *ToySuite) TestTLSCiphertextHeader(c *C) {
 
 func (s *ToySuite) TestGenericStreamCipherMarshalAndUnMarshal(c *C) {
 	params := securityParameters{
-		mac_algorithm: macAlgorithm{
+		macAlgorithm: macAlgorithm{
 			h: sha256.New(),
 		},
 	}
 	ciphered := GenericStreamCipher{
-		content: []byte{0x02},                              //TLSCompressed.length
-		MAC:     make([]byte, params.mac_algorithm.Size()), //SecurityParameters.mac_length
+		content: []byte{0x02},                             //TLSCompressed.length
+		MAC:     make([]byte, params.macAlgorithm.Size()), //SecurityParameters.mac_length
 	}
 	c.Assert(GenericStreamCipher{}.UnMarshal(ciphered.Marshal(), params), DeepEquals, ciphered)
 }
 
 func (s *ToySuite) TestGenericBlockCipherMarshalAndUnMarshal(c *C) {
 	params := securityParameters{
-		record_iv_length: 2,
-		mac_algorithm: macAlgorithm{
+		recordIVLength: 2,
+		macAlgorithm: macAlgorithm{
 			h: sha256.New(),
 		},
 	}
 	ciphered := GenericBlockCipher{
-		IV:             []byte{0x01, 0x01},                        //SecurityParameters.record_iv_length
-		content:        []byte{0x02},                              //TLSCompressed.length
-		MAC:            make([]byte, params.mac_algorithm.Size()), //SecurityParameters.mac_length
-		padding:        []byte{0x04, 0x05},                        //GenericBlockCipher.padding_length
+		IV:             []byte{0x01, 0x01},                       //SecurityParameters.record_iv_length
+		content:        []byte{0x02},                             //TLSCompressed.length
+		MAC:            make([]byte, params.macAlgorithm.Size()), //SecurityParameters.mac_length
+		padding:        []byte{0x04, 0x05},                       //GenericBlockCipher.padding_length
 		padding_length: 2,
 	}
 	c.Assert(GenericBlockCipher{}.UnMarshal(ciphered.Marshal(), params), DeepEquals, ciphered)
@@ -53,7 +53,7 @@ func (s *ToySuite) TestGenericAEADCipherMarshalAndUnMarshal(c *C) {
 		content:        []byte{0x03},       //TLSCompressed.length
 	}
 	params := securityParameters{
-		record_iv_length: 2,
+		recordIVLength: 2,
 	}
 	c.Assert(GenericAEADCipher{}.UnMarshal(ciphered.Marshal(), params), DeepEquals, ciphered)
 }

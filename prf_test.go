@@ -15,18 +15,18 @@ func (s *ToySuite) TestPRF(c *C) {
 
 func (s *ToySuite) TestKeysFromMasterSecret(c *C) {
 	params := securityParameters{
-		mac_key_length:  1,
-		enc_key_length:  2,
-		fixed_iv_length: 3,
-		master_secret:   [48]byte{},
-		client_random:   [32]byte{},
-		server_random:   [32]byte{},
+		macKeyLength:  1,
+		encKeyLength:  2,
+		fixedIVLength: 3,
+		masterSecret:  [48]byte{},
+		clientRandom:  [32]byte{},
+		serverRandom:  [32]byte{},
 	}
 	writeParams := keysFromMasterSecret(params)
-	c.Assert(len(writeParams.clientMAC), Equals, int(params.mac_key_length))
-	c.Assert(len(writeParams.serverMAC), Equals, int(params.mac_key_length))
-	c.Assert(len(writeParams.clientKey), Equals, int(params.enc_key_length))
-	c.Assert(len(writeParams.serverKey), Equals, int(params.enc_key_length))
-	c.Assert(len(writeParams.clientIV), Equals, int(params.fixed_iv_length))
-	c.Assert(len(writeParams.serverIV), Equals, int(params.fixed_iv_length))
+	c.Assert(len(writeParams.clientMAC), Equals, int(params.macKeyLength))
+	c.Assert(len(writeParams.serverMAC), Equals, int(params.macKeyLength))
+	c.Assert(len(writeParams.clientKey), Equals, int(params.encKeyLength))
+	c.Assert(len(writeParams.serverKey), Equals, int(params.encKeyLength))
+	c.Assert(len(writeParams.clientIV), Equals, int(params.fixedIVLength))
+	c.Assert(len(writeParams.serverIV), Equals, int(params.fixedIVLength))
 }

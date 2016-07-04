@@ -39,30 +39,30 @@ func p_hash(result, secret, seed []byte) {
 }
 
 func keysFromMasterSecret(params securityParameters) *writeParams {
-	seed := make([]byte, 0, len(params.server_random)+len(params.client_random))
-	seed = append(seed, params.server_random[:]...)
-	seed = append(seed, params.client_random[:]...)
+	seed := make([]byte, 0, len(params.serverRandom)+len(params.clientRandom))
+	seed = append(seed, params.serverRandom[:]...)
+	seed = append(seed, params.clientRandom[:]...)
 
-	n := 2*params.mac_key_length + 2*params.enc_key_length + 2*params.fixed_iv_length
+	n := 2*params.macKeyLength + 2*params.encKeyLength + 2*params.fixedIVLength
 	keyMaterial := make([]byte, n)
-	prf(keyMaterial, params.master_secret[:], keyExpansionLabel, seed)
+	prf(keyMaterial, params.masterSecret[:], keyExpansionLabel, seed)
 
 	w := new(writeParams)
-	w.clientMAC = keyMaterial[:params.mac_key_length]
-	keyMaterial = keyMaterial[params.mac_key_length:]
+	w.clientMAC = keyMaterial[:params.macKeyLength]
+	keyMaterial = keyMaterial[params.macKeyLength:]
 
-	w.serverMAC = keyMaterial[:params.mac_key_length]
-	keyMaterial = keyMaterial[params.mac_key_length:]
+	w.serverMAC = keyMaterial[:params.macKeyLength]
+	keyMaterial = keyMaterial[params.macKeyLength:]
 
-	w.clientKey = keyMaterial[:params.enc_key_length]
-	keyMaterial = keyMaterial[params.enc_key_length:]
+	w.clientKey = keyMaterial[:params.encKeyLength]
+	keyMaterial = keyMaterial[params.encKeyLength:]
 
-	w.serverKey = keyMaterial[:params.enc_key_length]
-	keyMaterial = keyMaterial[params.enc_key_length:]
+	w.serverKey = keyMaterial[:params.encKeyLength]
+	keyMaterial = keyMaterial[params.encKeyLength:]
 
-	w.clientIV = keyMaterial[:params.fixed_iv_length]
-	keyMaterial = keyMaterial[params.fixed_iv_length:]
+	w.clientIV = keyMaterial[:params.fixedIVLength]
+	keyMaterial = keyMaterial[params.fixedIVLength:]
 
-	w.serverIV = keyMaterial[:params.fixed_iv_length]
+	w.serverIV = keyMaterial[:params.fixedIVLength]
 	return w
 }

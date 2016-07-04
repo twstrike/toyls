@@ -210,10 +210,14 @@ func newRandom(r io.Reader) random {
 
 //See: 8.1.  Computing the Master Secret
 func computeMasterSecret(preMasterSecret, clientRandom, serverRandom []byte) [48]byte {
-	//TODO
-	//PRF(pre_master_secret, "master secret",
-	//ClientHello.random + ServerHello.random)[0..47];
-	return [48]byte{}
+	out := [48]byte{}
+
+	seed := make([]byte, len(clientRandom)+len(serverRandom))
+	copy(seed, clientRandom)
+	copy(seed[len(clientRandom):], serverRandom)
+
+	prf(out[:], preMasterSecret, "master secret", seed)
+	return out
 }
 
 func generateVerifyData(masterSecret, finishedLabel []byte, handshakeMessages io.Reader) ([]byte, error) {

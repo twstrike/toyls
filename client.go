@@ -9,11 +9,17 @@ import (
 	"fmt"
 )
 
+var (
+	clientFinished = []byte("client finished")
+)
+
 type handshakeClient struct {
 	tls.Certificate
 	serverCertificate     *x509.Certificate
 	shouldSendCertificate bool
 
+	clientRandom, serverRandom [32]byte
+	preMasterSecret            []byte
 	bytes.Buffer
 }
 
@@ -22,9 +28,10 @@ func newHandshakeClient() *handshakeClient {
 }
 
 func (c *handshakeClient) sendClientHello() ([]byte, error) {
+	clientRandom := newRandom(rand.Reader)
 	message, err := serializeClientHello(&clientHelloBody{
 		clientVersion: VersionTLS12,
-		random:        newRandom(rand.Reader),
+		random:        clientRandom,
 		sessionID:     nil,
 		cipherSuites: []cipherSuite{
 			cipherSuite{0x00, 0x2f}, // TLS_RSA_WITH_AES_128_CBC_SHA
@@ -36,14 +43,24 @@ func (c *handshakeClient) sendClientHello() ([]byte, error) {
 		return nil, err
 	}
 
+	serializeRandom(c.clientRandom[:], &clientRandom)
 	c.Write(message)
+
 	return serializeHandshakeMessage(&handshakeMessage{
 		clientHelloType, message,
 	}), nil
 }
 
-func (c *handshakeClient) receiveServerHello(message []byte) {
+func (c *handshakeClient) receiveServerHello(message []byte) error {
+	serverHello, err := deserializeServerHello(message)
+	if err != nil {
+		return err
+	}
+
+	serializeRandom(c.serverRandom[:], &serverHello.random)
 	c.Write(message)
+
+	return nil
 }
 
 func (c *handshakeClient) receiveCertificate(cert []byte) error {
@@ -108,13 +125,23 @@ func (c *handshakeClient) sendCertificate() ([]byte, error) {
 }
 
 func (c *handshakeClient) sendClientKeyExchange() ([]byte, error) {
-	pub := c.serverCertificate.PublicKey.(*rsa.PublicKey)
-	preMasterSecret, err := generateEncryptedPreMasterSecret(pub)
+	preMasterSecret, err := generatePreMasterSecret(rand.Reader)
 	if err != nil {
 		return nil, err
 	}
 
-	message, err := serializeEncryptedPreMasterSecret(preMasterSecret)
+	c.preMasterSecret, err = serializePreMasterSecret(preMasterSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	pub := c.serverCertificate.PublicKey.(*rsa.PublicKey)
+	encPreMasterSecret, err := encryptPreMasterSecret(c.preMasterSecret, pub)
+	if err != nil {
+		return nil, err
+	}
+
+	message, err := serializeEncryptedPreMasterSecret(encPreMasterSecret)
 	if err != nil {
 		return nil, err
 	}
@@ -126,8 +153,21 @@ func (c *handshakeClient) sendClientKeyExchange() ([]byte, error) {
 }
 
 func (c *handshakeClient) sendCertificateVerify() ([]byte, error) {
-	//TODO
+	//I guess we won't send this. We are not supporting client certificate at this moment
+	//TODO Sign all previous messages with the client's certificate.
 	return nil, nil
+}
+
+func (c *handshakeClient) sendFinished() ([]byte, error) {
+	masterSecret := computeMasterSecret(c.preMasterSecret[:], c.clientRandom[:], c.serverRandom[:])
+	verifyData, err := generateVerifyData(masterSecret[:], clientFinished, &c.Buffer)
+	if err != nil {
+		return nil, err
+	}
+
+	return serializeHandshakeMessage(&handshakeMessage{
+		finishedType, verifyData,
+	}), nil
 }
 
 /// Serialization

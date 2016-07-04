@@ -156,18 +156,11 @@ func sendCertificate(cert tls.Certificate, w io.Writer) ([]byte, error) {
 }
 
 //See: 7.4.7.1.  RSA-Encrypted Premaster Secret Message
-func generateEncryptedPreMasterSecret(pub *rsa.PublicKey) (*encryptedPreMasterSecretBody, error) {
-	preMasterSecret, err := generatePreMasterSecret(rand.Reader)
+func encryptPreMasterSecret(preMasterSecret []byte, pub *rsa.PublicKey) (*encryptedPreMasterSecretBody, error) {
+	out, err := rsa.EncryptPKCS1v15(rand.Reader, pub, preMasterSecret)
 	if err != nil {
 		return nil, err
 	}
-
-	msg, err := serializePreMasterSecret(preMasterSecret)
-	if err != nil {
-		return nil, err
-	}
-
-	out, err := rsa.EncryptPKCS1v15(rand.Reader, pub, msg)
 
 	return &encryptedPreMasterSecretBody{out}, nil
 }
@@ -184,6 +177,14 @@ func serializePreMasterSecret(s *preMasterSecret) ([]byte, error) {
 	dst := make([]byte, 0, 48)
 	dst = append(dst, s.clientVersion.major, s.clientVersion.minor)
 	return append(dst, s.random[:]...), nil
+}
+
+func serializeRandom(dst []byte, r *random) []byte {
+	gmtUnixTime := writeBytesFromUint32(r.gmtUnixTime)
+	copy(dst, gmtUnixTime[:])
+	copy(dst[4:], r.randomBytes[:])
+
+	return dst[32:]
 }
 
 func serializeEncryptedPreMasterSecret(s *encryptedPreMasterSecretBody) ([]byte, error) {
@@ -205,6 +206,19 @@ func newRandom(r io.Reader) random {
 	io.ReadFull(r, rand.randomBytes[:])
 
 	return rand
+}
+
+//See: 8.1.  Computing the Master Secret
+func computeMasterSecret(preMasterSecret, clientRandom, serverRandom []byte) [48]byte {
+	//TODO
+	//PRF(pre_master_secret, "master secret",
+	//ClientHello.random + ServerHello.random)[0..47];
+	return [48]byte{}
+}
+
+func generateVerifyData(masterSecret, finishedLabel []byte, handshakeMessages io.Reader) ([]byte, error) {
+	//TODO
+	return nil, nil
 }
 
 func zip(pieces ...[]byte) [][]byte {

@@ -1,24 +1,26 @@
 package toyls
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 )
 
 type handshakeClient struct {
 	tls.Certificate
-	serverCertificate *x509.Certificate
-
+	serverCertificate     *x509.Certificate
 	shouldSendCertificate bool
+
+	bytes.Buffer
 }
 
 func newHandshakeClient() *handshakeClient {
 	return &handshakeClient{}
 }
 
-//SHOULD GENERATE A RECORD THAT A SERVER CAN RECEIVE?
 func (c *handshakeClient) sendClientHello() ([]byte, error) {
 	message, err := serializeClientHello(&clientHelloBody{
 		clientVersion: VersionTLS12,
@@ -34,40 +36,14 @@ func (c *handshakeClient) sendClientHello() ([]byte, error) {
 		return nil, err
 	}
 
+	c.Write(message)
 	return serializeHandshakeMessage(&handshakeMessage{
 		clientHelloType, message,
 	}), nil
 }
 
-func (c *handshakeClient) receiveCertificateRequest() {
-	//Should save the certificateRequest, and only send the message after
-	//receiving a helloDone
-	c.shouldSendCertificate = true
-}
-
-func (c *handshakeClient) sendCertificate() ([]byte, error) {
-	if !c.shouldSendCertificate {
-		return nil, nil
-	}
-
-	return sendCertificate(c.Certificate)
-}
-
-func (c *handshakeClient) sendClientKeyExchange() ([]byte, error) {
-	pub := c.serverCertificate.PublicKey.(*rsa.PublicKey)
-	preMasterSecret, err := generateEncryptedPreMasterSecret(pub)
-	if err != nil {
-		return nil, err
-	}
-
-	message, err := serializeEncryptedPreMasterSecret(preMasterSecret)
-	if err != nil {
-		return nil, err
-	}
-
-	return serializeHandshakeMessage(&handshakeMessage{
-		clientKeyExchangeType, message,
-	}), nil
+func (c *handshakeClient) receiveServerHello(message []byte) {
+	c.Write(message)
 }
 
 func (c *handshakeClient) receiveCertificate(cert []byte) error {
@@ -82,20 +58,79 @@ func (c *handshakeClient) receiveCertificate(cert []byte) error {
 		return err
 	}
 
-	//XXX Validate certificates
+	pubKey := c.serverCertificate.PublicKey
+	switch pubKey.(type) {
+	case *rsa.PublicKey:
+		break
+	default:
+		return fmt.Errorf("tls: unsupported type of public key: %T", pubKey)
+	}
 
+	c.Write(cert)
 	return nil
 }
 
-func (c *handshakeClient) receiveServerHelloDone() ([][]byte, error) {
+func (c *handshakeClient) receiveServerKeyExchange(message []byte) {
+	//TODO
+	c.Write(message)
+}
+
+func (c *handshakeClient) receiveCertificateRequest(cert []byte) {
+	//Should save the certificateRequest, and only send the message after
+	//receiving a helloDone
+	c.shouldSendCertificate = true
+	c.Write(cert)
+}
+
+func (c *handshakeClient) receiveServerHelloDone(done []byte) ([][]byte, error) {
 	certificateMsg, err := c.sendCertificate()
 	if err != nil {
 		return nil, err
 	}
 
+	c.Write(done)
+
 	clientKeyExchange, err := c.sendClientKeyExchange()
-	return zip(certificateMsg, clientKeyExchange), err
+	toSend := zip(certificateMsg, clientKeyExchange)
+	for _, s := range toSend {
+		c.Write(s)
+	}
+
+	return toSend, err
 }
+
+func (c *handshakeClient) sendCertificate() ([]byte, error) {
+	if !c.shouldSendCertificate {
+		return nil, nil
+	}
+
+	return sendCertificate(c.Certificate, c)
+}
+
+func (c *handshakeClient) sendClientKeyExchange() ([]byte, error) {
+	pub := c.serverCertificate.PublicKey.(*rsa.PublicKey)
+	preMasterSecret, err := generateEncryptedPreMasterSecret(pub)
+	if err != nil {
+		return nil, err
+	}
+
+	message, err := serializeEncryptedPreMasterSecret(preMasterSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	c.Write(message)
+	return serializeHandshakeMessage(&handshakeMessage{
+		clientKeyExchangeType, message,
+	}), nil
+}
+
+func (c *handshakeClient) sendCertificateVerify() ([]byte, error) {
+	//TODO
+	return nil, nil
+}
+
+/// Serialization
 
 func deserializeClientHello(h []byte) (*clientHelloBody, error) {
 	var err error
@@ -151,36 +186,6 @@ func beginSession() *session {
 	//TODO
 	//record layer's connection state encryption, hash, and
 	//   compression algorithms are initialized to null
-
-	return nil
-}
-
-//XXX I guess this should be different for client and server
-func receiveHandshakeMessage(m interface{}) interface{} {
-	//TODO
-	switch m.(type) {
-	default:
-		//unexpected
-	case helloRequestBody:
-		// See: 7.4.1.1.  Hello Request
-		//Ignore if the client is currently negotiating a session
-		//MAY be ignored if it does not wish to renegotiate a session, or the
-		//      client may, if it wishes, respond with a no_renegotiation alert.
-		//Send ClientHello
-		return &clientHelloBody{}
-	case clientHelloBody:
-		// See: 7.4.1.3.  Server Hello
-		//Send ServerHello
-		return &serverHelloBody{}
-
-		//If the agreed-upon key exchange method uses certificates for authentication
-		//MUST send this immediatelly
-		return &certificateBody{}
-	case certificateBody:
-		// See: 7.4.3.  Server Key Exchange Message
-		//
-		return &serverKeyExchangeBody{}
-	}
 
 	return nil
 }

@@ -187,7 +187,7 @@ func (s *ToySuite) TestClientReceiveServerHelloDone(c *C) {
 	client := newHandshakeClient()
 	client.serverCertificate, _ = x509.ParseCertificate(serverCertificate.Certificate[0])
 
-	toSend, err := client.receiveServerHelloDone()
+	toSend, err := client.receiveServerHelloDone([]byte{})
 	c.Assert(err, IsNil)
 	c.Assert(len(toSend), Equals, 1)
 
@@ -210,9 +210,9 @@ func (s *ToySuite) TestClientReceiveCertificateRequestAndServerHelloDone(c *C) {
 	client.serverCertificate, _ = x509.ParseCertificate(serverCertificate.Certificate[0])
 
 	client.Certificate = serverCertificate //Will use the same, just for convenience
-	client.receiveCertificateRequest()
+	client.receiveCertificateRequest([]byte{})
 
-	toSend, err := client.receiveServerHelloDone()
+	toSend, err := client.receiveServerHelloDone([]byte{})
 	c.Assert(err, IsNil)
 	c.Assert(len(toSend), Equals, 2)
 

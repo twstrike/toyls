@@ -1,6 +1,7 @@
 package toyls
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/tls"
 )
@@ -12,6 +13,8 @@ type handshakeServer struct {
 	// or else set GetCertificate.
 	//XXX Why does tls.Config has an []Certificate?
 	tls.Certificate
+
+	bytes.Buffer
 }
 
 func newHandshakeServer() *handshakeServer {
@@ -48,7 +51,7 @@ func (s *handshakeServer) receiveClientHello(m []byte) ([]byte, error) {
 func (s *handshakeServer) sendCertificate() ([]byte, error) {
 	//Should have checked if the agreed-upon key exchange method uses
 	//certificates for authentication. For now, our method always supports.
-	return sendCertificate(s.Certificate)
+	return sendCertificate(s.Certificate, s)
 }
 
 func (s *handshakeServer) sendServerKeyExchange() ([]byte, error) {

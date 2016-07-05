@@ -29,7 +29,7 @@ func (s *ToySuite) TestConnHandleStreamCipherText(c *C) {
 		version:     VersionTLS12,
 		length:      uint16(len(ciphered.content)),
 	}
-	ciphered.MAC = conn.params.macAlgorithm.MAC(nil, conn.state.sequenceNumber[0:], cipherText.header(), ciphered.content)
+	ciphered.MAC = conn.params.macAlgorithm.MAC(nil, conn.state.writeSequenceNumber[0:], cipherText.header(), ciphered.content)
 
 	cipherText.fragment = ciphered.Marshal()
 	cipherText.length = uint16(len(cipherText.fragment))
@@ -65,7 +65,7 @@ func (s *ToySuite) TestConnHandleBlockCipherText(c *C) {
 		version:     VersionTLS12,
 		length:      uint16(len(ciphered.content)),
 	}
-	ciphered.MAC = connA.params.macAlgorithm.MAC(nil, connA.state.sequenceNumber[0:], cipherText.header(), ciphered.content)
+	ciphered.MAC = connA.params.macAlgorithm.MAC(nil, connA.state.writeSequenceNumber[0:], cipherText.header(), ciphered.content)
 
 	ciphered.padToBlockSize(connA.params.outCipher.(cbcMode).BlockSize())
 

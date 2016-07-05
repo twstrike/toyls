@@ -22,7 +22,7 @@ func NewConn(entity connectionEnd) *Conn {
 			inCipher:  nullStreamCipher{},
 			outCipher: nullStreamCipher{},
 			macAlgorithm: macAlgorithm{
-				h: sha256.New(),
+				h: sha256.New(), //TODO: revisit when should HMAC be used
 			},
 			compressionAlgorithm: nullCompressionMethod{},
 			encKeyLength:         32,
@@ -104,7 +104,7 @@ func (c *Conn) handleCipherText(cipherText TLSCiphertext) (TLSCompressed, error)
 		break
 	}
 	cipherText.length = uint16(len(ciphered.Content()))
-	localMAC := c.params.macAlgorithm.MAC(nil, c.state.sequenceNumber[0:], cipherText.header(), ciphered.Content())
+	localMAC := c.params.macAlgorithm.MAC(nil, c.state.readSequenceNumber[0:], cipherText.header(), ciphered.Content())
 	remoteMAC := ciphered.Mac()
 	if subtle.ConstantTimeCompare(localMAC, remoteMAC) != 1 {
 		return compressed, errors.New("alertBadRecordMAC")
@@ -136,7 +136,7 @@ func (c *Conn) macAndEncrypt(compressed TLSCompressed) (TLSCiphertext, error) {
 	case cipher.Stream:
 		ciphered := GenericStreamCipher{
 			content: compressed.fragment, //TLSCompressed.length
-			MAC:     c.params.macAlgorithm.MAC(nil, c.state.sequenceNumber[0:], cipherText.header(), compressed.fragment),
+			MAC:     c.params.macAlgorithm.MAC(nil, c.state.writeSequenceNumber[0:], cipherText.header(), compressed.fragment),
 		}
 		cipherText.fragment = ciphered.Marshal()
 		c.params.outCipher.(cipher.Stream).XORKeyStream(cipherText.fragment, cipherText.fragment)
@@ -144,7 +144,7 @@ func (c *Conn) macAndEncrypt(compressed TLSCompressed) (TLSCiphertext, error) {
 	case cbcMode:
 		ciphered := GenericBlockCipher{
 			content: compressed.fragment,
-			MAC:     c.params.macAlgorithm.MAC(nil, c.state.sequenceNumber[0:], cipherText.header(), compressed.fragment),
+			MAC:     c.params.macAlgorithm.MAC(nil, c.state.writeSequenceNumber[0:], cipherText.header(), compressed.fragment),
 		}
 		ciphered.IV = c.cbcIV(true)
 		ciphered.padToBlockSize(cc.BlockSize())

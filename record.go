@@ -81,10 +81,11 @@ func (nullCompressionMethod) decompress(compressed []byte) ([]byte, uint16) {
 }
 
 type connectionState struct {
-	compressionState uint8
-	cipherState      uint8
-	macKey           []byte
-	sequenceNumber   [8]byte //uint64
+	compressionState    uint8
+	cipherState         uint8
+	macKey              []byte
+	readSequenceNumber  [8]byte //uint64
+	writeSequenceNumber [8]byte //uint64
 }
 
 type ContentType uint8

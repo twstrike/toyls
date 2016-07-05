@@ -17,7 +17,7 @@ func (s *ToySuite) TestFullHandshake(c *C) {
 	server.handshakeServer.Certificate, err = tls.X509KeyPair(pem, pem)
 	c.Assert(err, IsNil)
 
-	fmt.Printf("Certificate: %#v\n", server.handshakeServer.Certificate)
+	//fmt.Printf("Certificate: %#v\n", server.handshakeServer.Certificate)
 
 	//tls.Dial(...) -> TCP connection + sendHello
 	m, err := client.hello()
@@ -32,8 +32,6 @@ func (s *ToySuite) TestFullHandshake(c *C) {
 	client.receive(toSend[1])
 	fmt.Println("server (serverHelloDone) ->")
 	toSend = client.receive(toSend[2]) // toSend = ChangeCipherSpec, Finished
-
-	return
 
 	fmt.Println("client (changeCipherSpec) ->")
 	server.receive(toSend[0])

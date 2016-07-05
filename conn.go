@@ -5,7 +5,6 @@ import (
 	"crypto/subtle"
 	"encoding/binary"
 	"errors"
-	"fmt"
 )
 
 const recordHeaderLen = 5
@@ -130,6 +129,10 @@ func (c *Conn) hello() ([]byte, error) {
 
 func (c *Conn) sendHandshake(h []byte) ([]byte, error) {
 	return c.send(HANDSHAKE, VersionTLS12, h)
+}
+
+func (c *Conn) sendChangeCipher() ([]byte, error) {
+	return c.send(CHANGE_CIPHER_SPEC, VersionTLS12, []byte{1})
 }
 
 func (c *Conn) fragment(contentType ContentType, version protocolVersion, content []byte) (TLSPlaintext, []byte, error) {
@@ -308,6 +311,9 @@ func (c *Conn) handlePlainText(plaintext TLSPlaintext) [][]byte {
 		}
 
 		return ret
+	case CHANGE_CIPHER_SPEC:
+		//TODO: should store that it received the changeCipher
+		//and react to it
 	}
 
 	return nil
@@ -315,9 +321,7 @@ func (c *Conn) handlePlainText(plaintext TLSPlaintext) [][]byte {
 
 func (c *Conn) receiveHandshakeMessage(msg []byte) ([][]byte, error) {
 	toSend := make([][]byte, 0, 4)
-
 	h := deserializeHandshakeMessage(msg)
-	fmt.Printf("received handshake = %#v\n", h)
 
 	switch h.msgType {
 	case helloRequestType:
@@ -390,11 +394,58 @@ func (c *Conn) receiveHandshakeMessage(msg []byte) ([][]byte, error) {
 		}
 
 	case serverKeyExchangeType:
+		//Not yet
 	case certificateRequestType:
+		//Not yet
 	case serverHelloDoneType:
+		//Send Certificate if have to
+		//Send ClientKeyExchange if have to
+		//Send CertificateVerify if have to
+
+		m, err := c.sendChangeCipher()
+		if err != nil {
+			return nil, err
+		}
+
+		toSend = append(toSend, m)
+
+		m, err = c.handshakeClient.sendFinished()
+		if err != nil {
+			return nil, err
+		}
+
+		m, err = c.sendHandshake(m)
+		if err != nil {
+			return nil, err
+		}
+
+		toSend = append(toSend, m)
 	case certificateVerifyType:
+		//Not yet
 	case clientKeyExchangeType:
+		//Not yet
 	case finishedType:
+		//TODO: Chek if it has received a changeCipher. How will we know if the received
+		//changeCipher is from this handshake or not?
+
+		m, err := c.sendChangeCipher()
+		if err != nil {
+			return nil, err
+		}
+
+		toSend = append(toSend, m)
+
+		m, err = c.handshakeClient.sendFinished()
+		if err != nil {
+			return nil, err
+		}
+
+		m, err = c.sendHandshake(m)
+		if err != nil {
+			return nil, err
+		}
+
+		toSend = append(toSend, m)
 	}
 
 	return toSend, nil

@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"encoding/binary"
 	"errors"
+	"net"
 )
 
 const recordHeaderLen = 5
@@ -18,6 +19,8 @@ type Conn struct {
 
 	*handshakeServer
 	*handshakeClient
+
+	rawConn net.Conn
 }
 
 func newClient() *Conn {

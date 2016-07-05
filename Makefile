@@ -11,3 +11,6 @@ lint:
 
 test:
 	go test -check.vv -cover ./...
+
+live:
+	go test -check.f LiveToySuite -live

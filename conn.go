@@ -4,6 +4,7 @@ import (
 	"crypto/cipher"
 	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/binary"
 	"errors"
 )
 
@@ -13,10 +14,16 @@ type Conn struct {
 	state  connectionState
 	params securityParameters
 	wp     writeParams
+
+	chunkSize uint16
 }
 
 func NewConn(entity connectionEnd) *Conn {
 	conn := Conn{
+		state: connectionState{
+			readSequenceNumber:  [8]byte{},
+			writeSequenceNumber: [8]byte{},
+		},
 		params: securityParameters{
 			entity:    entity,
 			inCipher:  nullStreamCipher{},
@@ -29,14 +36,29 @@ func NewConn(entity connectionEnd) *Conn {
 			fixedIVLength:        16,
 			macKeyLength:         32,
 		},
+		chunkSize: uint16(0x4000),
 	}
 	return &conn
 }
 
-func (c *Conn) send(plain TLSPlaintext) []byte {
-	compressed, _ := c.compress(plain)
-	cipherText, _ := c.macAndEncrypt(compressed)
-	return cipherText.serialize()
+func (c *Conn) SetChunkSize(chunkSize uint16) {
+	if chunkSize < uint16(0x4000) {
+		c.chunkSize = chunkSize
+	}
+}
+
+func (c *Conn) send(contentType ContentType, version protocolVersion, content []byte) []byte {
+	ret := []byte{}
+	var plainText TLSPlaintext
+	for len(content) > 0 {
+		plainText, content, _ = c.fragment(contentType, version, content)
+		compressed, _ := c.compress(plainText)
+		cipherText, _ := c.macAndEncrypt(compressed)
+		seq, _ := binary.Uvarint(c.state.writeSequenceNumber[:]) //TODO: alert for renegotiation
+		binary.PutUvarint(c.state.writeSequenceNumber[:], seq+1)
+		ret = append(ret, cipherText.serialize()...)
+	}
+	return ret
 }
 
 func (c *Conn) receive(payload []byte) {
@@ -44,10 +66,30 @@ func (c *Conn) receive(payload []byte) {
 	for len(payload) > 0 {
 		cipherText, payload, _ = c.handleFragment(payload)
 		compressed, _ := c.handleCipherText(cipherText)
-		plaintext, _ := c.handleCompressed(compressed)
-		c.handlePlainText(plaintext)
+		plainText, _ := c.handleCompressed(compressed)
+		c.handlePlainText(plainText)
+		seq, _ := binary.Uvarint(c.state.readSequenceNumber[:]) //TODO: alert for renegotiation
+		binary.PutUvarint(c.state.readSequenceNumber[:], seq+1)
 	}
 	return
+}
+
+func (c *Conn) fragment(contentType ContentType, version protocolVersion, content []byte) (TLSPlaintext, []byte, error) {
+	plainText := TLSPlaintext{
+		contentType: contentType,
+		version:     version,
+	}
+	length := len(content)
+	if length > int(c.chunkSize) {
+		plainText.length = c.chunkSize
+		plainText.fragment = content[:c.chunkSize]
+		content = content[c.chunkSize:]
+	} else {
+		plainText.length = uint16(length)
+		plainText.fragment = content
+		return plainText, nil, nil
+	}
+	return plainText, content, nil
 }
 
 func (c *Conn) handleFragment(payload []byte) (TLSCiphertext, []byte, error) {
@@ -177,22 +219,22 @@ func (c Conn) cbcIV(sending bool) (iv []byte) {
 }
 
 func (c *Conn) handleCompressed(compressed TLSCompressed) (TLSPlaintext, error) {
-	plaintext := TLSPlaintext{}
-	plaintext.contentType = compressed.contentType
-	plaintext.version = compressed.version
-	plaintext.fragment, plaintext.length = c.params.compressionAlgorithm.decompress(compressed.fragment)
-	return plaintext, nil
+	plainText := TLSPlaintext{}
+	plainText.contentType = compressed.contentType
+	plainText.version = compressed.version
+	plainText.fragment, plainText.length = c.params.compressionAlgorithm.decompress(compressed.fragment)
+	return plainText, nil
 }
 
-func (c *Conn) compress(plaintext TLSPlaintext) (TLSCompressed, error) {
+func (c *Conn) compress(plainText TLSPlaintext) (TLSCompressed, error) {
 	compressed := TLSCompressed{}
-	compressed.contentType = plaintext.contentType
-	compressed.version = plaintext.version
-	compressed.fragment, compressed.length = c.params.compressionAlgorithm.compress(plaintext.fragment)
+	compressed.contentType = plainText.contentType
+	compressed.version = plainText.version
+	compressed.fragment, compressed.length = c.params.compressionAlgorithm.compress(plainText.fragment)
 	return compressed, nil
 }
 
-func (c *Conn) handlePlainText(plaintext TLSPlaintext) {
+func (c *Conn) handlePlainText(plainText TLSPlaintext) {
 	//TODO: to be implemented
 	return
 }

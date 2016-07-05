@@ -145,3 +145,20 @@ func (s *ToySuite) TestConnBlockMacAndEncrypt(c *C) {
 	c.Assert(compressed.length, Equals, uint16(2))
 	c.Assert(compressed.fragment, DeepEquals, []byte{0x01, 0x02})
 }
+
+func (s *ToySuite) TestConnFragment(c *C) {
+	conn := NewConn(CLIENT)
+	conn.SetChunkSize(uint16(0x3000))
+	content := [0x5000]byte{}
+	plainText, in, _ := conn.fragment(HANDSHAKE, VersionTLS12, content[:])
+	c.Assert(plainText.contentType, Equals, HANDSHAKE)
+	c.Assert(plainText.version, Equals, VersionTLS12)
+	c.Assert(plainText.length, Equals, uint16(0x3000))
+	c.Assert(len(plainText.fragment), Equals, int(0x3000))
+
+	plainText, in, _ = conn.fragment(HANDSHAKE, VersionTLS12, in)
+	c.Assert(plainText.contentType, Equals, HANDSHAKE)
+	c.Assert(plainText.version, Equals, VersionTLS12)
+	c.Assert(plainText.length, Equals, uint16(0x2000))
+	c.Assert(len(plainText.fragment), Equals, int(0x2000))
+}

@@ -91,10 +91,10 @@ type connectionState struct {
 type ContentType uint8
 
 var (
-	CHANGE_CIPHER_SPEC ContentType = 20
-	ALERT              ContentType = 21
-	HANDSHAKE          ContentType = 22
-	APPLICATION_DATA   ContentType = 23
+	CHANGE_CIPHER_SPEC ContentType = 0x14
+	ALERT              ContentType = 0x15
+	HANDSHAKE          ContentType = 0x16
+	APPLICATION_DATA   ContentType = 0x17
 	// other           ContentType = 255
 )
 
@@ -122,21 +122,21 @@ type writeParams struct {
 type TLSPlaintext struct {
 	contentType ContentType
 	version     protocolVersion
-	length      uint16
+	length      uint16 //is this len(fragment)?
 	fragment    []byte //TLSPlaintext.length MUST NOT exceed 2^14.
 }
 
 type TLSCompressed struct {
 	contentType ContentType
 	version     protocolVersion
-	length      uint16
+	length      uint16 //is this len(fragment)?
 	fragment    []byte //TLSCompressed.length MUST NOT exceed 2^14 + 1024.
 }
 
 type TLSCiphertext struct {
 	contentType ContentType
 	version     protocolVersion
-	length      uint16
+	length      uint16 //is this len(fragment)?
 	// select (SecurityParameters.cipher_type) {
 	//     case stream: GenericStreamCipher;
 	//     case block:  GenericBlockCipher;

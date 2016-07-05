@@ -6,6 +6,7 @@ import (
 	"crypto/subtle"
 	"encoding/binary"
 	"errors"
+	"fmt"
 )
 
 const recordHeaderLen = 5
@@ -16,6 +17,17 @@ type Conn struct {
 	wp     writeParams
 
 	chunkSize uint16
+
+	*handshakeServer
+	*handshakeClient
+}
+
+func newClient() *Conn {
+	return NewConn(CLIENT)
+}
+
+func newServer() *Conn {
+	return NewConn(SERVER)
 }
 
 func NewConn(entity connectionEnd) *Conn {
@@ -24,6 +36,9 @@ func NewConn(entity connectionEnd) *Conn {
 			readSequenceNumber:  [8]byte{},
 			writeSequenceNumber: [8]byte{},
 		},
+		handshakeServer: &handshakeServer{},
+		handshakeClient: &handshakeClient{},
+
 		params: securityParameters{
 			entity:    entity,
 			inCipher:  nullStreamCipher{},
@@ -47,31 +62,77 @@ func (c *Conn) SetChunkSize(chunkSize uint16) {
 	}
 }
 
-func (c *Conn) send(contentType ContentType, version protocolVersion, content []byte) []byte {
+func (c *Conn) send(contentType ContentType, version protocolVersion, content []byte) ([]byte, error) {
+	var err error
 	ret := []byte{}
 	var plainText TLSPlaintext
 	for len(content) > 0 {
-		plainText, content, _ = c.fragment(contentType, version, content)
-		compressed, _ := c.compress(plainText)
-		cipherText, _ := c.macAndEncrypt(compressed)
+		plainText, content, err = c.fragment(contentType, version, content)
+		if err != nil {
+			return nil, err
+		}
+
+		compressed, err := c.compress(plainText)
+		if err != nil {
+			return nil, err
+		}
+
+		cipherText, err := c.macAndEncrypt(compressed)
+		if err != nil {
+			return nil, err
+		}
+
 		seq, _ := binary.Uvarint(c.state.writeSequenceNumber[:]) //TODO: alert for renegotiation
+
 		binary.PutUvarint(c.state.writeSequenceNumber[:], seq+1)
 		ret = append(ret, cipherText.serialize()...)
 	}
-	return ret
+
+	return ret, nil
 }
 
-func (c *Conn) receive(payload []byte) {
+func (c *Conn) receive(payload []byte) [][]byte {
 	var cipherText TLSCiphertext
+	var err error
+	toSend := make([][]byte, 0, 3)
+
 	for len(payload) > 0 {
-		cipherText, payload, _ = c.handleFragment(payload)
-		compressed, _ := c.handleCipherText(cipherText)
-		plainText, _ := c.handleCompressed(compressed)
-		c.handlePlainText(plainText)
+		cipherText, payload, err = c.handleFragment(payload)
+		if err != nil {
+			panic(err)
+		}
+		compressed, err := c.handleCipherText(cipherText)
+		if err != nil {
+			panic(err)
+		}
+		plainText, err := c.handleCompressed(compressed)
+		if err != nil {
+			panic(err)
+		}
+
+		toSend = append(toSend, c.handlePlainText(plainText)...)
 		seq, _ := binary.Uvarint(c.state.readSequenceNumber[:]) //TODO: alert for renegotiation
 		binary.PutUvarint(c.state.readSequenceNumber[:], seq+1)
 	}
-	return
+
+	return toSend
+}
+
+func (c *Conn) hello() ([]byte, error) {
+	h, err := c.sendClientHello()
+	if err != nil {
+		//TODO send alert message
+		panic("error")
+	}
+
+	//After this, receiving anything but a serverHello is a fatal
+	//error
+
+	return c.sendHandshake(h)
+}
+
+func (c *Conn) sendHandshake(h []byte) ([]byte, error) {
+	return c.send(HANDSHAKE, VersionTLS12, h)
 }
 
 func (c *Conn) fragment(contentType ContentType, version protocolVersion, content []byte) (TLSPlaintext, []byte, error) {
@@ -174,6 +235,7 @@ func (c *Conn) macAndEncrypt(compressed TLSCompressed) (TLSCiphertext, error) {
 		version:     compressed.version,
 		length:      uint16(len(compressed.fragment)),
 	}
+
 	switch cc := c.params.outCipher.(type) {
 	case cipher.Stream:
 		ciphered := GenericStreamCipher{
@@ -181,6 +243,7 @@ func (c *Conn) macAndEncrypt(compressed TLSCompressed) (TLSCiphertext, error) {
 			MAC:     c.params.macAlgorithm.MAC(nil, c.state.writeSequenceNumber[0:], cipherText.header(), compressed.fragment),
 		}
 		cipherText.fragment = ciphered.Marshal()
+		cipherText.length = uint16(len(cipherText.fragment))
 		c.params.outCipher.(cipher.Stream).XORKeyStream(cipherText.fragment, cipherText.fragment)
 		break
 	case cbcMode:
@@ -234,7 +297,108 @@ func (c *Conn) compress(plainText TLSPlaintext) (TLSCompressed, error) {
 	return compressed, nil
 }
 
-func (c *Conn) handlePlainText(plainText TLSPlaintext) {
-	//TODO: to be implemented
-	return
+func (c *Conn) handlePlainText(plaintext TLSPlaintext) [][]byte {
+	//Should we check the version?
+
+	switch plaintext.contentType {
+	default:
+		panic("unsupported content type")
+	case HANDSHAKE:
+		ret, err := c.receiveHandshakeMessage(plaintext.fragment)
+		if err != nil {
+			//send alert message?
+			return nil
+		}
+
+		return ret
+	}
+
+	return nil
+}
+
+func (c *Conn) receiveHandshakeMessage(msg []byte) ([][]byte, error) {
+	toSend := make([][]byte, 0, 4)
+
+	h := deserializeHandshakeMessage(msg)
+	fmt.Printf("received handshake = %#v\n", h)
+
+	switch h.msgType {
+	case helloRequestType:
+		m, err := c.sendClientHello()
+		if err != nil {
+			return nil, err
+		}
+
+		m, err = c.sendHandshake(m)
+		if err != nil {
+			return nil, err
+		}
+
+		toSend = append(toSend, m)
+	case clientHelloType:
+		m, err := c.receiveClientHello(h.message)
+		if err != nil {
+			return nil, err
+		}
+
+		m, err = c.sendHandshake(m)
+		if err != nil {
+			return nil, err
+		}
+
+		toSend = append(toSend, m)
+
+		//TODO: check if the key exchange uses a certificate.
+		m, err = c.handshakeServer.sendCertificate()
+		if err != nil {
+			return nil, err
+		}
+
+		m, err = c.sendHandshake(m)
+		if err != nil {
+			return nil, err
+		}
+
+		toSend = append(toSend, m)
+
+		//IF we need a Server Key Exchange Message,
+		//send it NOW.
+
+		//IF we need a Certificate Request,
+		//send it NOW.
+
+		//MUST always finishes with a serverHelloDone
+		m, err = c.sendServerHelloDone()
+		if err != nil {
+			return nil, err
+		}
+
+		m, err = c.sendHandshake(m)
+		if err != nil {
+			return nil, err
+		}
+
+		toSend = append(toSend, m)
+
+	case serverHelloType:
+		err := c.receiveServerHello(h.message)
+		if err != nil {
+			return nil, err
+		}
+
+	case certificateType:
+		err := c.receiveCertificate(h.message)
+		if err != nil {
+			return nil, err
+		}
+
+	case serverKeyExchangeType:
+	case certificateRequestType:
+	case serverHelloDoneType:
+	case certificateVerifyType:
+	case clientKeyExchangeType:
+	case finishedType:
+	}
+
+	return toSend, nil
 }

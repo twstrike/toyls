@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"crypto/tls"
+	"errors"
 )
 
 type handshakeServer struct {
@@ -32,20 +33,66 @@ func (s *handshakeServer) receiveClientHello(m []byte) ([]byte, error) {
 	serializeRandom(s.clientRandom[:], &clientHello.random)
 	s.Write(m)
 
-	//TODO: check all things and return error if we cant agree
-	//TODO: store what we have agreed
-
-	return s.sendServerHello()
+	return s.agree(clientHello)
 }
 
-func (s *handshakeServer) sendServerHello() ([]byte, error) {
+func (s *handshakeServer) agree(h *clientHelloBody) ([]byte, error) {
+	version, err := s.checkSupportedVersion(h.clientVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	cipherSuite, err := s.checkSupportedCipherSuites(h.cipherSuites)
+	if err != nil {
+		return nil, err
+	}
+
+	compressionMethod, err := s.checkSupportedCompressionMethods(h.compressionMethods)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.sendServerHello(version, cipherSuite, compressionMethod)
+}
+
+func (s *handshakeServer) checkSupportedVersion(v protocolVersion) (protocolVersion, error) {
+	if v != VersionTLS12 {
+		return v, errors.New("unsupported version")
+	}
+
+	return v, nil
+}
+
+func (s *handshakeServer) checkSupportedCipherSuites(suites []cipherSuite) (cipherSuite, error) {
+	supported := cipherSuite{0x00, 0x2f}
+
+	for _, cs := range suites {
+		if cs == supported {
+			return cs, nil
+		}
+	}
+
+	return cipherSuite{}, errors.New("unsupported cipher suite")
+}
+
+func (s *handshakeServer) checkSupportedCompressionMethods(methods []uint8) (uint8, error) {
+	for _, cm := range methods {
+		if cm == 0 {
+			return cm, nil
+		}
+	}
+
+	return 0xff, errors.New("unsupported compression method")
+}
+
+func (s *handshakeServer) sendServerHello(version protocolVersion, cipherSuite cipherSuite, compressionMethod uint8) ([]byte, error) {
 	serverRandom := newRandom(rand.Reader)
 	serverHello := &serverHelloBody{
-		serverVersion:     VersionTLS12, //If supported by the client
+		serverVersion:     version,
 		random:            serverRandom,
-		sessionID:         nil,                     // we dont support session resume
-		cipherSuite:       cipherSuite{0x00, 0x2f}, //If supported by the client
-		compressionMethod: 0x00,                    //Is supported by the client
+		sessionID:         nil, // we dont support session resume
+		cipherSuite:       cipherSuite,
+		compressionMethod: compressionMethod,
 	}
 
 	message, err := serializeServerHello(serverHello)

@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/tls"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"time"
@@ -139,6 +140,7 @@ func deserializeHandshakeMessage(m []byte) *handshakeMessage {
 	}
 }
 
+//TODO: remove this error
 func sendCertificate(cert tls.Certificate, w io.Writer) ([]byte, error) {
 	//XXX I think this is wrong. It should be a list of certificateChains, maybe.
 	body := &certificateBody{
@@ -146,10 +148,14 @@ func sendCertificate(cert tls.Certificate, w io.Writer) ([]byte, error) {
 		certificateList: cert.Certificate,
 	}
 
+	fmt.Printf("certificateList: %#v\n", body.certificateList)
+
 	message, err := serializeCertificate(body)
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Printf("certBody: %#v\n", message)
 
 	w.Write(message)
 	return serializeHandshakeMessage(&handshakeMessage{

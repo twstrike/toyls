@@ -2,7 +2,6 @@ package toyls
 
 import (
 	"crypto/cipher"
-	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/binary"
 	"errors"
@@ -40,12 +39,10 @@ func NewConn(entity connectionEnd) *Conn {
 		handshakeClient: &handshakeClient{},
 
 		params: securityParameters{
-			entity:    entity,
-			inCipher:  nullStreamCipher{},
-			outCipher: nullStreamCipher{},
-			macAlgorithm: macAlgorithm{
-				h: sha256.New(), //TODO: revisit when should HMAC be used
-			},
+			entity:               entity,
+			inCipher:             nullStreamCipher{},
+			outCipher:            nullStreamCipher{},
+			macAlgorithm:         nullMacAlgorithm{},
 			compressionAlgorithm: nullCompressionMethod{},
 			encKeyLength:         32,
 			fixedIVLength:        16,

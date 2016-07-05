@@ -49,15 +49,31 @@ func (cbc cbcBlockCipher) SetIV(iv []byte) {
 }
 
 type bulkCipherAlgorithm interface{}
-type macAlgorithm struct {
+
+type macAlgorithm interface {
+	Size() int
+	MAC(digestBuf, seq, header, data []byte) []byte
+}
+
+type nullMacAlgorithm struct{}
+
+func (s nullMacAlgorithm) Size() int {
+	return 0
+}
+
+func (s nullMacAlgorithm) MAC(digestBuf, seq, header, data []byte) []byte {
+	return []byte{}
+}
+
+type hmacAlgorithm struct {
 	h hash.Hash
 }
 
-func (s macAlgorithm) Size() int {
+func (s hmacAlgorithm) Size() int {
 	return s.h.Size()
 }
 
-func (s macAlgorithm) MAC(digestBuf, seq, header, data []byte) []byte {
+func (s hmacAlgorithm) MAC(digestBuf, seq, header, data []byte) []byte {
 	s.h.Reset()
 	s.h.Write(seq)
 	s.h.Write(header)

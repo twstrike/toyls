@@ -19,7 +19,7 @@ func (s *ToySuite) TestTLSCiphertextHeader(c *C) {
 
 func (s *ToySuite) TestGenericStreamCipherMarshalAndUnMarshal(c *C) {
 	params := securityParameters{
-		macAlgorithm: macAlgorithm{
+		macAlgorithm: hmacAlgorithm{
 			h: sha256.New(),
 		},
 	}
@@ -33,7 +33,7 @@ func (s *ToySuite) TestGenericStreamCipherMarshalAndUnMarshal(c *C) {
 func (s *ToySuite) TestGenericBlockCipherMarshalAndUnMarshal(c *C) {
 	params := securityParameters{
 		recordIVLength: 2,
-		macAlgorithm: macAlgorithm{
+		macAlgorithm: hmacAlgorithm{
 			h: sha256.New(),
 		},
 	}

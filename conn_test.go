@@ -8,7 +8,7 @@ import (
 )
 
 func (s *ToySuite) TestConnHandleFragment(c *C) {
-	conn := NewConn()
+	conn := NewConn(CLIENT)
 	in := []byte{22, 0x03, 0x01, 0x00, 0x01, 0x00, 22, 0x03, 0x01, 0x00, 0x01, 0x00}
 	cipherText, in, _ := conn.handleFragment(in)
 	cipherText, in, _ = conn.handleFragment(in)
@@ -20,7 +20,7 @@ func (s *ToySuite) TestConnHandleFragment(c *C) {
 }
 
 func (s *ToySuite) TestConnHandleStreamCipherText(c *C) {
-	conn := NewConn()
+	conn := NewConn(CLIENT)
 	ciphered := GenericStreamCipher{
 		content: []byte{0x01, 0x02}, //TLSCompressed.length
 	}
@@ -44,20 +44,20 @@ func (s *ToySuite) TestConnHandleStreamCipherText(c *C) {
 }
 
 func (s *ToySuite) TestConnHandleBlockCipherText(c *C) {
-	connA := NewConn()
-	connB := NewConn()
+	connA := NewConn(CLIENT)
+	connB := NewConn(SERVER)
 	connA.params.masterSecret = [48]byte{0x03, 0x03, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01}
 
 	wp := keysFromMasterSecret(connA.params)
 	block, err := aes.NewCipher(wp.clientKey)
 
-	connA.params.cipher = cipher.NewCBCEncrypter(block, wp.clientIV)
-	connB.params.cipher = cipher.NewCBCDecrypter(block, wp.clientIV)
-	connA.params.recordIVLength = uint8(connA.params.cipher.(cbcMode).BlockSize())
-	connB.params.recordIVLength = uint8(connB.params.cipher.(cbcMode).BlockSize())
+	connA.params.outCipher = cipher.NewCBCEncrypter(block, wp.clientIV)
+	connB.params.inCipher = cipher.NewCBCDecrypter(block, wp.clientIV)
+	connA.params.recordIVLength = uint8(connA.params.outCipher.(cbcMode).BlockSize())
+	connB.params.recordIVLength = uint8(connB.params.inCipher.(cbcMode).BlockSize())
 
 	ciphered := GenericBlockCipher{
-		IV:      make([]byte, connA.params.recordIVLength),
+		IV:      wp.clientIV,
 		content: []byte{0x01, 0x02}, //TLSCompressed.length
 	}
 	cipherText := TLSCiphertext{
@@ -67,20 +67,12 @@ func (s *ToySuite) TestConnHandleBlockCipherText(c *C) {
 	}
 	ciphered.MAC = connA.params.macAlgorithm.MAC(nil, connA.state.sequenceNumber[0:], cipherText.header(), ciphered.content)
 
-	ciphered.SetIV(wp.clientIV)
-	ciphered.padToBlockSize(connA.params.cipher.(cbcMode).BlockSize())
+	ciphered.padToBlockSize(connA.params.outCipher.(cbcMode).BlockSize())
 
 	cipherText.fragment = make([]byte, len(ciphered.Marshal()))
 	copy(cipherText.fragment, ciphered.IV)
 
-	remaining := make([]byte, len(cipherText.fragment)-int(connA.params.recordIVLength))
-	plain := ciphered.Marshal()[connA.params.recordIVLength:]
-
-	connA.params.cipher.(cbcMode).CryptBlocks(remaining, plain)
-	plain = make([]byte, len(remaining))
-	connB.params.cipher.(cbcMode).CryptBlocks(plain, remaining)
-
-	copy(cipherText.fragment[connA.params.recordIVLength:], remaining)
+	connA.params.outCipher.(cbcMode).CryptBlocks(cipherText.fragment[connA.params.recordIVLength:], ciphered.Marshal()[connA.params.recordIVLength:])
 	cipherText.length = uint16(len(cipherText.fragment))
 
 	compressed, err := connB.handleCipherText(cipherText)
@@ -93,7 +85,7 @@ func (s *ToySuite) TestConnHandleBlockCipherText(c *C) {
 }
 
 func (s *ToySuite) TestConnHandleCompressed(c *C) {
-	conn := NewConn()
+	conn := NewConn(CLIENT)
 	compressed := TLSCompressed{
 		contentType: HANDSHAKE,
 		version:     VersionTLS12,
@@ -108,8 +100,8 @@ func (s *ToySuite) TestConnHandleCompressed(c *C) {
 	c.Assert(plaintext.fragment, DeepEquals, []byte{0x01, 0x02, 0x03})
 }
 
-func (s *ToySuite) TestConnMacAndEncrypt(c *C) {
-	conn := NewConn()
+func (s *ToySuite) TestConnStreamMacAndEncrypt(c *C) {
+	conn := NewConn(CLIENT)
 	compressed := TLSCompressed{
 		contentType: HANDSHAKE,
 		version:     VersionTLS12,
@@ -119,6 +111,34 @@ func (s *ToySuite) TestConnMacAndEncrypt(c *C) {
 	cipherText, err := conn.macAndEncrypt(compressed)
 	c.Assert(err, IsNil)
 	compressed, err = conn.handleCipherText(cipherText)
+	c.Assert(err, IsNil)
+	c.Assert(compressed.contentType, Equals, HANDSHAKE)
+	c.Assert(compressed.version, Equals, VersionTLS12)
+	c.Assert(compressed.length, Equals, uint16(2))
+	c.Assert(compressed.fragment, DeepEquals, []byte{0x01, 0x02})
+}
+
+func (s *ToySuite) TestConnBlockMacAndEncrypt(c *C) {
+	connA := NewConn(CLIENT)
+	connB := NewConn(SERVER)
+	connA.params.masterSecret = [48]byte{0x03, 0x03, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01}
+	wp := keysFromMasterSecret(connA.params)
+	connA.wp = wp
+	block, err := aes.NewCipher(wp.clientKey)
+	connA.params.outCipher = cipher.NewCBCEncrypter(block, wp.clientIV)
+	connB.params.inCipher = cipher.NewCBCDecrypter(block, wp.clientIV)
+	connA.params.recordIVLength = uint8(connA.params.outCipher.(cbcMode).BlockSize())
+	connB.params.recordIVLength = uint8(connB.params.inCipher.(cbcMode).BlockSize())
+
+	compressed := TLSCompressed{
+		contentType: HANDSHAKE,
+		version:     VersionTLS12,
+		length:      2,
+		fragment:    []byte{0x01, 0x02},
+	}
+	cipherText, err := connA.macAndEncrypt(compressed)
+	c.Assert(err, IsNil)
+	compressed, err = connB.handleCipherText(cipherText)
 	c.Assert(err, IsNil)
 	c.Assert(compressed.contentType, Equals, HANDSHAKE)
 	c.Assert(compressed.version, Equals, VersionTLS12)

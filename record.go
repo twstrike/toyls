@@ -1,6 +1,9 @@
 package toyls
 
-import "hash"
+import (
+	"crypto/cipher"
+	"hash"
+)
 
 type connectionEnd uint8
 
@@ -13,7 +16,8 @@ type securityParameters struct {
 	entity               connectionEnd
 	prfAlgorithm         prfAlgorithm
 	bulkCipherAlgorithm  bulkCipherAlgorithm
-	cipher               cipherType
+	inCipher             cipherType
+	outCipher            cipherType
 	encKeyLength         uint8
 	blockLength          uint8
 	fixedIVLength        uint8
@@ -33,6 +37,15 @@ type nullStreamCipher struct{}
 
 func (nullStreamCipher) XORKeyStream(dst, src []byte) {
 	return
+}
+
+type cbcBlockCipher struct {
+	cipher.BlockMode
+	iv []byte
+}
+
+func (cbc cbcBlockCipher) SetIV(iv []byte) {
+	copy(cbc.iv, iv)
 }
 
 type bulkCipherAlgorithm interface{}
@@ -217,10 +230,6 @@ func (c GenericBlockCipher) Content() []byte {
 
 func (c GenericBlockCipher) Mac() []byte {
 	return c.MAC
-}
-
-func (c *GenericBlockCipher) SetIV(IV []byte) {
-	copy(c.IV, IV)
 }
 
 type GenericAEADCipher struct {

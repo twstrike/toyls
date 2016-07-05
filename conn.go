@@ -15,10 +15,12 @@ type Conn struct {
 	wp     writeParams
 }
 
-func NewConn() *Conn {
+func NewConn(entity connectionEnd) *Conn {
 	conn := Conn{
 		params: securityParameters{
-			cipher: nullStreamCipher{},
+			entity:    entity,
+			inCipher:  nullStreamCipher{},
+			outCipher: nullStreamCipher{},
 			macAlgorithm: macAlgorithm{
 				h: sha256.New(),
 			},
@@ -77,13 +79,12 @@ func (c *Conn) handleCipherText(cipherText TLSCiphertext) (TLSCompressed, error)
 	compressed.version = cipherText.version
 	var ciphered Ciphered
 	explicitIVLen := 0
-	switch c.params.cipher.(type) {
+	switch cc := c.params.inCipher.(type) {
 	case cipher.Stream:
-		c.params.cipher.(cipher.Stream).XORKeyStream(cipherText.fragment, cipherText.fragment)
+		cc.XORKeyStream(cipherText.fragment, cipherText.fragment)
 		ciphered = GenericStreamCipher{}.UnMarshal(cipherText.fragment, c.params)
 		break
 	case cbcMode:
-		cc := c.params.cipher.(cbcMode)
 		blockSize := cc.BlockSize()
 		explicitIVLen = blockSize
 		if len(cipherText.fragment)%blockSize != 0 || len(cipherText.fragment) < roundUp(explicitIVLen+c.params.macAlgorithm.Size()+1, blockSize) {
@@ -131,22 +132,48 @@ func (c *Conn) macAndEncrypt(compressed TLSCompressed) (TLSCiphertext, error) {
 		version:     compressed.version,
 		length:      uint16(len(compressed.fragment)),
 	}
-	var ciphered Ciphered
-
-	switch c.params.cipher.(type) {
+	switch cc := c.params.outCipher.(type) {
 	case cipher.Stream:
-		ciphered = GenericStreamCipher{
+		ciphered := GenericStreamCipher{
 			content: compressed.fragment, //TLSCompressed.length
 			MAC:     c.params.macAlgorithm.MAC(nil, c.state.sequenceNumber[0:], cipherText.header(), compressed.fragment),
 		}
 		cipherText.fragment = ciphered.Marshal()
-		c.params.cipher.(cipher.Stream).XORKeyStream(cipherText.fragment, cipherText.fragment)
+		c.params.outCipher.(cipher.Stream).XORKeyStream(cipherText.fragment, cipherText.fragment)
 		break
 	case cbcMode:
+		ciphered := GenericBlockCipher{
+			content: compressed.fragment,
+			MAC:     c.params.macAlgorithm.MAC(nil, c.state.sequenceNumber[0:], cipherText.header(), compressed.fragment),
+		}
+		ciphered.IV = c.cbcIV(true)
+		ciphered.padToBlockSize(cc.BlockSize())
+		cipherText.fragment = make([]byte, len(ciphered.Marshal()))
+		cipherText.length = uint16(len(cipherText.fragment))
+		copy(cipherText.fragment, ciphered.IV)
+		cc.CryptBlocks(cipherText.fragment[c.params.recordIVLength:], ciphered.Marshal()[c.params.recordIVLength:])
+		break
 	case cipher.AEAD:
 		return cipherText, errors.New("not Implemented")
 	}
 	return cipherText, nil
+}
+
+func (c Conn) cbcIV(sending bool) (iv []byte) {
+	if c.params.entity == CLIENT {
+		if sending {
+			iv = c.wp.clientIV
+		} else {
+			iv = c.wp.serverIV
+		}
+	} else if c.params.entity == SERVER {
+		if sending {
+			iv = c.wp.serverIV
+		} else {
+			iv = c.wp.clientIV
+		}
+	}
+	return
 }
 
 func (c *Conn) handleCompressed(compressed TLSCompressed) (TLSPlaintext, error) {

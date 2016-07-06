@@ -3,18 +3,25 @@ package toyls
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"io"
 
 	. "gopkg.in/check.v1"
 )
 
 func (s *ToySuite) TestConnHandleFragment(c *C) {
 	conn := NewConn(CLIENT)
-	in := []byte{22, 0x03, 0x01, 0x00, 0x01, 0x00, 22, 0x03, 0x01, 0x00, 0x01, 0x00}
-	cipherText, in, _ := conn.handleFragment(in)
-	cipherText, in, _ = conn.handleFragment(in)
+	in := &mockConnIOReaderWriter{readwrite: []byte{22, 0x03, 0x03, 0x00, 0x01, 0x00, 22, 0x03, 0x03, 0x00, 0x01, 0x00}}
+	cipherText, _ := conn.handleFragment(in)
 
 	c.Assert(cipherText.contentType, Equals, HANDSHAKE)
-	c.Assert(cipherText.version, Equals, VersionTLS10)
+	c.Assert(cipherText.version, Equals, VersionTLS12)
+	c.Assert(cipherText.length, Equals, uint16(1))
+	c.Assert(cipherText.fragment, DeepEquals, []byte{0x00})
+
+	cipherText, _ = conn.handleFragment(in)
+
+	c.Assert(cipherText.contentType, Equals, HANDSHAKE)
+	c.Assert(cipherText.version, Equals, VersionTLS12)
 	c.Assert(cipherText.length, Equals, uint16(1))
 	c.Assert(cipherText.fragment, DeepEquals, []byte{0x00})
 }
@@ -161,4 +168,42 @@ func (s *ToySuite) TestConnFragment(c *C) {
 	c.Assert(plainText.version, Equals, VersionTLS12)
 	c.Assert(plainText.length, Equals, uint16(0x2000))
 	c.Assert(len(plainText.fragment), Equals, int(0x2000))
+}
+
+type mockConnIOReaderWriter struct {
+	readwrite []byte
+	readIndex int
+	errCount  int
+	err       error
+
+	calledClose int
+}
+
+func (iom *mockConnIOReaderWriter) Read(p []byte) (n int, err error) {
+	if iom.readIndex >= len(iom.readwrite) {
+		return 0, io.EOF
+	}
+	i := copy(p, iom.readwrite[iom.readIndex:])
+	iom.readIndex += i
+	var e error
+	if iom.errCount == 0 {
+		e = iom.err
+	}
+	iom.errCount--
+	return i, e
+}
+
+func (iom *mockConnIOReaderWriter) Write(p []byte) (n int, err error) {
+	iom.readwrite = append(iom.readwrite, p...)
+	var e error
+	if iom.errCount == 0 {
+		e = iom.err
+	}
+	iom.errCount--
+	return len(p), e
+}
+
+func (iom *mockConnIOReaderWriter) Close() error {
+	iom.calledClose++
+	return nil
 }

@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"encoding/binary"
 	"errors"
+	"io"
 	"net"
 )
 
@@ -20,7 +21,8 @@ type Conn struct {
 	*handshakeServer
 	*handshakeClient
 
-	rawConn net.Conn
+	rawConn     net.Conn
+	calledClose int
 }
 
 func newClient() *Conn {
@@ -61,6 +63,11 @@ func (c *Conn) SetChunkSize(chunkSize uint16) {
 	}
 }
 
+func (c *Conn) Close() {
+	c.rawConn.Close()
+	return
+}
+
 func (c *Conn) send(contentType ContentType, version protocolVersion, content []byte) ([]byte, error) {
 	var err error
 	ret := []byte{}
@@ -81,38 +88,37 @@ func (c *Conn) send(contentType ContentType, version protocolVersion, content []
 			return nil, err
 		}
 
-		seq, _ := binary.Uvarint(c.state.writeSequenceNumber[:]) //TODO: alert for renegotiation
-
-		binary.PutUvarint(c.state.writeSequenceNumber[:], seq+1)
+		seq := binary.BigEndian.Uint64(c.state.writeSequenceNumber[:]) //TODO: alert for renegotiation
+		binary.BigEndian.PutUint64(c.state.writeSequenceNumber[:], seq+1)
 		ret = append(ret, cipherText.serialize()...)
 	}
 
 	return ret, nil
 }
 
-func (c *Conn) receive(payload []byte) [][]byte {
-	var cipherText TLSCiphertext
-	var err error
-	toSend := make([][]byte, 0, 3)
-
-	for len(payload) > 0 {
-		cipherText, payload, err = c.handleFragment(payload)
-		if err != nil {
-			panic(err)
+func (c *Conn) receive(in io.Reader) chan [][]byte {
+	toSend := make(chan [][]byte, 1024)
+	go func() {
+		for {
+			cipherText, err := c.handleFragment(in)
+			if err != nil {
+				panic(err)
+			}
+			compressed, err := c.handleCipherText(cipherText)
+			if err != nil {
+				panic(err)
+			}
+			plainText, err := c.handleCompressed(compressed)
+			if err != nil {
+				panic(err)
+			}
+			if bts := c.handlePlainText(plainText); len(bts) > 0 {
+				toSend <- bts
+			}
+			seq := binary.BigEndian.Uint64(c.state.readSequenceNumber[:]) //TODO: alert for renegotiation
+			binary.BigEndian.PutUint64(c.state.readSequenceNumber[:], seq+1)
 		}
-		compressed, err := c.handleCipherText(cipherText)
-		if err != nil {
-			panic(err)
-		}
-		plainText, err := c.handleCompressed(compressed)
-		if err != nil {
-			panic(err)
-		}
-
-		toSend = append(toSend, c.handlePlainText(plainText)...)
-		seq, _ := binary.Uvarint(c.state.readSequenceNumber[:]) //TODO: alert for renegotiation
-		binary.PutUvarint(c.state.readSequenceNumber[:], seq+1)
-	}
+	}()
 
 	return toSend
 }
@@ -156,18 +162,21 @@ func (c *Conn) fragment(contentType ContentType, version protocolVersion, conten
 	return plainText, content, nil
 }
 
-func (c *Conn) handleFragment(payload []byte) (TLSCiphertext, []byte, error) {
+func (c *Conn) handleFragment(in io.Reader) (TLSCiphertext, error) {
 	cipherText := TLSCiphertext{}
-	header := make([]byte, 5)
-	n := copy(header, payload)
-	payload = payload[n:]
+	header, err := readFromUntil(in, 5)
+	if err != nil {
+		return cipherText, err
+	}
 	cipherText.contentType = ContentType(header[0])
 	cipherText.version, header = extractProtocolVersion(header[1:])
 	cipherText.length, header = extractUint16(header)
-	cipherText.fragment = make([]byte, cipherText.length)
-	n = copy(cipherText.fragment, payload)
-	payload = payload[n:]
-	return cipherText, payload, nil
+	cipherText.fragment, err = readFromUntil(in, int(cipherText.length))
+
+	if err != nil {
+		return cipherText, err
+	}
+	return cipherText, nil
 }
 
 func roundUp(a, b int) int {
@@ -317,6 +326,8 @@ func (c *Conn) handlePlainText(plaintext TLSPlaintext) [][]byte {
 	case CHANGE_CIPHER_SPEC:
 		//TODO: should store that it received the changeCipher
 		//and react to it
+	case ALERT:
+		panic("Receiveing ALERT")
 	}
 
 	return nil
@@ -405,7 +416,13 @@ func (c *Conn) receiveHandshakeMessage(msg []byte) ([][]byte, error) {
 		//Send ClientKeyExchange if have to
 		//Send CertificateVerify if have to
 
-		m, err := c.sendChangeCipher()
+		m, err := c.sendClientKeyExchange()
+		if err != nil {
+			return nil, err
+		}
+		toSend = append(toSend, m)
+
+		m, err = c.sendChangeCipher()
 		if err != nil {
 			return nil, err
 		}
@@ -452,4 +469,25 @@ func (c *Conn) receiveHandshakeMessage(msg []byte) ([][]byte, error) {
 	}
 
 	return toSend, nil
+}
+
+func readFromUntil(in io.Reader, i int) ([]byte, error) {
+	ret := make([]byte, i)
+	m := 0
+	temp := ret[:]
+	for {
+		if m < i {
+			n, err := in.Read(temp)
+			if err, ok := err.(*net.OpError); ok && err.Timeout() {
+				continue
+			} else if err != nil {
+				return nil, err
+			}
+			m += n
+			temp = ret[m:]
+		} else {
+			break
+		}
+	}
+	return ret, nil
 }

@@ -2,7 +2,6 @@ package toyls
 
 import (
 	"crypto/sha256"
-	"io"
 
 	. "gopkg.in/check.v1"
 )
@@ -56,43 +55,4 @@ func (s *ToySuite) TestGenericAEADCipherMarshalAndUnMarshal(c *C) {
 		recordIVLength: 2,
 	}
 	c.Assert(GenericAEADCipher{}.UnMarshal(ciphered.Marshal(), params), DeepEquals, ciphered)
-}
-
-type mockConnIOReaderWriter struct {
-	read      []byte
-	readIndex int
-	write     []byte
-	errCount  int
-	err       error
-
-	calledClose int
-}
-
-func (iom *mockConnIOReaderWriter) Read(p []byte) (n int, err error) {
-	if iom.readIndex >= len(iom.read) {
-		return 0, io.EOF
-	}
-	i := copy(p, iom.read[iom.readIndex:])
-	iom.readIndex += i
-	var e error
-	if iom.errCount == 0 {
-		e = iom.err
-	}
-	iom.errCount--
-	return i, e
-}
-
-func (iom *mockConnIOReaderWriter) Write(p []byte) (n int, err error) {
-	iom.write = append(iom.write, p...)
-	var e error
-	if iom.errCount == 0 {
-		e = iom.err
-	}
-	iom.errCount--
-	return len(p), e
-}
-
-func (iom *mockConnIOReaderWriter) Close() error {
-	iom.calledClose++
-	return nil
 }

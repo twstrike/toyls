@@ -1,10 +1,8 @@
 package toyls
 
 import (
-	"bufio"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"net"
 
 	. "gopkg.in/check.v1"
@@ -43,18 +41,23 @@ func DialWithDialer(dialer *net.Dialer, network, addr string) (*Conn, error) {
 }
 
 func (c *Conn) Handshake() {
-	clientHello, _ := c.handshakeClient.sendClientHello()
-	tosend, _ := c.send(HANDSHAKE, VersionTLS12, clientHello)
-	c.rawConn.Write(tosend)
-	response, err := ioutil.ReadAll(bufio.NewReader(c.rawConn))
-	if err != nil {
-		fmt.Println(err.Error())
+	fmt.Println("Alice ClientHello ---------> Bob")
+	fmt.Println("Alice <--------- ServerHello Bob")
+	fmt.Println("Alice <--------- Certificate Bob")
+	fmt.Println("Alice <----- ServerHelloDone Bob")
+	fmt.Println("Alice ClientKeyExchange ---> Bob")
+	fmt.Println("Alice ChangeCipherSpec ----> Bob")
+	fmt.Println("Alice Finished ------------> Bob")
+	fmt.Println("Alice <----------- Finished  Bob")
+	clientHello, _ := c.hello()
+	c.rawConn.Write(clientHello)
+	toSends := make(chan [][]byte, 1024)
+	toSends = c.receive(c.rawConn)
+	for {
+		toSend := <-toSends
+		for i := range toSend {
+			c.rawConn.Write(toSend[i])
+		}
 	}
-	c.receive(response)
-	return
-}
-
-func (c *Conn) Close() {
-	c.rawConn.Close()
 	return
 }

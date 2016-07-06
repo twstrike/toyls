@@ -32,29 +32,27 @@ func (s *ToySuite) TestFullHandshake(c *C) {
 	fmt.Println("client (clientHello) ->")
 	serverIn.Write(m)
 
-	clientToReceive := <-serverToSend //serverToSends = ServerHello, Certificate, ServerHelloDone
+	//serverToSends = ServerHello, Certificate, ServerHelloDone
 	fmt.Println("server (serverHello) ->")
-	clientIn.Write(clientToReceive[0])
+	clientIn.Write(<-serverToSend)
 	fmt.Println("server (certificate) ->")
-	clientIn.Write(clientToReceive[1])
+	clientIn.Write(<-serverToSend)
 	fmt.Println("server (serverHelloDone) ->")
-	clientIn.Write(clientToReceive[2])
+	clientIn.Write(<-serverToSend)
 
-	serverToReceive := <-clientToSend // clientToSends = ChangeCipherSpec, Finished
-
+	// clientToSends = ChangeCipherSpec, Finished
 	fmt.Println("client (clientKeyExchange) ->")
-	serverIn.Write(serverToReceive[0])
+	serverIn.Write(<-clientToSend)
 	fmt.Println("client (changeCipherSpec) ->")
-	serverIn.Write(serverToReceive[1])
+	serverIn.Write(<-clientToSend)
 	fmt.Println("client (finished) ->")
-	serverIn.Write(serverToReceive[2])
+	serverIn.Write(<-clientToSend)
 
-	clientToReceive = <-serverToSend // serverToSends = ChangeCipherSpec, Finished
-
+	// serverToSends = ChangeCipherSpec, Finished
 	fmt.Println("server (changeCipherSpec) ->")
-	clientIn.Write(clientToReceive[0])
+	clientIn.Write(<-serverToSend)
 	fmt.Println("server (finished) ->")
-	clientIn.Write(clientToReceive[1])
+	clientIn.Write(<-serverToSend)
 
 	//You can start to exchange encrypted data
 }

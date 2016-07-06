@@ -51,13 +51,11 @@ func (c *Conn) Handshake() {
 	fmt.Println("Alice <----------- Finished  Bob")
 	clientHello, _ := c.hello()
 	c.rawConn.Write(clientHello)
-	toSends := make(chan [][]byte, 1024)
+	var toSends chan []byte
 	toSends = c.receive(c.rawConn)
 	for {
 		toSend := <-toSends
-		for i := range toSend {
-			c.rawConn.Write(toSend[i])
-		}
+		c.rawConn.Write(toSend)
 	}
 	return
 }

@@ -100,20 +100,21 @@ func (c *handshakeClient) receiveCertificateRequest(cert []byte) {
 }
 
 func (c *handshakeClient) receiveServerHelloDone(done []byte) ([][]byte, error) {
+	c.Write(done)
+
 	certificateMsg, err := c.sendCertificate()
 	if err != nil {
 		return nil, err
 	}
 
-	c.Write(done)
-
 	clientKeyExchange, err := c.sendClientKeyExchange()
-	toSend := zip(certificateMsg, clientKeyExchange)
-	for _, s := range toSend {
-		c.Write(s)
+	if err != nil {
+		return nil, err
 	}
 
-	return toSend, err
+	certificateVerify, err := c.sendCertificateVerify()
+
+	return zip(certificateMsg, clientKeyExchange, certificateVerify), err
 }
 
 func (c *handshakeClient) sendCertificate() ([]byte, error) {

@@ -409,9 +409,19 @@ func (c *Conn) receiveHandshakeMessage(msg []byte, toSend chan []byte) error {
 	case certificateRequestType:
 		//Not yet
 	case serverHelloDoneType:
-		//Send Certificate if have to
-		//Send ClientKeyExchange if have to
-		//Send CertificateVerify if have to
+		ms, err := c.receiveServerHelloDone(h.message)
+		if err != nil {
+			return err
+		}
+
+		for _, hm := range ms {
+			rm, err := c.sendHandshake(hm)
+			if err != nil {
+				return err
+			}
+
+			toSend <- rm
+		}
 
 		m, err := c.sendClientKeyExchange()
 		if err != nil {

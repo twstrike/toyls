@@ -105,10 +105,6 @@ func (c Conn) writeRecord(contentType ContentType, content []byte) error {
 	return nil
 }
 
-func (c *Conn) Handshake() {
-	c.handshaker.doHandshake()
-}
-
 func (c Conn) readRecord(contentType ContentType) ([]byte, error) {
 	cipherText, err := c.handleFragment(c.rawConn)
 	if err != nil {

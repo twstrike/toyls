@@ -24,7 +24,6 @@ func (s *LiveToySuite) TestClientHandshake(c *C) {
 	if err != nil {
 		panic("failed to connect: " + err.Error())
 	}
-	conn.Handshake()
 	conn.Close()
 }
 
@@ -36,5 +35,6 @@ func DialWithDialer(dialer *net.Dialer, network, addr string) (*Conn, error) {
 	rawConn, err := dialer.Dial(network, addr)
 	conn := NewConn(SERVER)
 	conn.rawConn = rawConn
+	conn.doHandshake()
 	return conn, err
 }

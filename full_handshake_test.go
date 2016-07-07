@@ -62,7 +62,7 @@ func (s *ToySuite) TestFullHandshakeNew(c *C) {
 		ok <- true
 	}()
 
-	client.Handshake()
+	client.doHandshake()
 	c.Assert(err, IsNil)
 	<-ok
 

@@ -72,6 +72,7 @@ func (c *Conn) send(contentType ContentType, version protocolVersion, content []
 	var err error
 	ret := []byte{}
 	var plainText TLSPlaintext
+
 	for len(content) > 0 {
 		plainText, content, err = c.fragment(contentType, version, content)
 		if err != nil {
@@ -423,7 +424,7 @@ func (c *Conn) receiveHandshakeMessage(msg []byte, toSend chan []byte) error {
 			toSend <- rm
 		}
 
-		m, err = c.sendChangeCipher()
+		m, err := c.sendChangeCipher()
 		if err != nil {
 			return err
 		}

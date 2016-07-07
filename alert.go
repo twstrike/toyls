@@ -28,7 +28,7 @@ const (
 	decodeError               alertDescription = 50
 	decryptError              alertDescription = 51
 	exportRestrictionReserved alertDescription = 60
-	protocolVersion           alertDescription = 70
+	protocolVersionError      alertDescription = 70
 	insufficientSecurity      alertDescription = 71
 	internalError             alertDescription = 80
 	userCanceled              alertDescription = 90

@@ -16,12 +16,21 @@ type Conn struct {
 	params securityParameters
 	wp     writeParams
 
+	handshaker
 	chunkSize uint16
 
-	*handshakeServer
-	*handshakeClient
+	rawConn     net.Conn
+	calledClose int
+}
 
-	rawConn net.Conn
+type client struct {
+	*Conn
+	*handshakeClient
+}
+
+type server struct {
+	*Conn
+	*handshakeServer
 }
 
 func newClient() *Conn {
@@ -50,16 +59,18 @@ func NewConn(entity connectionEnd) *Conn {
 		},
 		chunkSize: uint16(0x4000),
 	}
+
 	switch entity {
 	case CLIENT:
-		conn.handshakeClient = &handshakeClient{
+		conn.handshaker = &handshakeClient{
 			recordProtocol: &conn,
 		}
 	case SERVER:
-		conn.handshakeServer = &handshakeServer{
+		conn.handshaker = &handshakeServer{
 			recordProtocol: &conn,
 		}
 	}
+
 	return &conn
 }
 
@@ -105,13 +116,7 @@ func (c Conn) writeRecord(contentType ContentType, content []byte) error {
 }
 
 func (c *Conn) Handshake() {
-	switch c.params.entity {
-	case CLIENT:
-		c.handshakeClient.doHandshake()
-	case SERVER:
-		c.handshakeServer.doHandshake()
-	}
-	return
+	c.handshaker.doHandshake()
 }
 
 func (c Conn) readRecord(contentType ContentType) ([]byte, error) {

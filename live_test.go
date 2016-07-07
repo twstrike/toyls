@@ -34,7 +34,7 @@ func Dial(network, addr string) (*Conn, error) {
 
 func DialWithDialer(dialer *net.Dialer, network, addr string) (*Conn, error) {
 	rawConn, err := dialer.Dial(network, addr)
-	conn := newClient()
+	conn := NewConn(SERVER)
 	conn.rawConn = rawConn
 	return conn, err
 }

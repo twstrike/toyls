@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"errors"
+	"fmt"
 )
 
 type handshakeServer struct {
@@ -238,12 +239,16 @@ func serializeCertificate(c *certificateBody) ([]byte, error) {
 }
 
 func (c *handshakeServer) doHandshake() {
-	msg, _ := c.readRecord(HANDSHAKE)
-	m, _ := c.receiveClientHello(msg)
+	r, _ := c.readRecord(HANDSHAKE)
+	h := deserializeHandshakeMessage(r)
+
+	m, _ := c.receiveClientHello(h.message)
+	fmt.Println("server (serverHello) ->")
 	c.writeRecord(HANDSHAKE, m)
 
 	//TODO: they should all be in receive client hello
 	m, _ = c.sendCertificate()
+	fmt.Println("server (certificate) ->")
 	c.writeRecord(HANDSHAKE, m)
 
 	//IF we need a Server Key Exchange Message,
@@ -254,14 +259,24 @@ func (c *handshakeServer) doHandshake() {
 
 	//MUST always finishes with a serverHelloDone
 	m, _ = c.sendServerHelloDone()
+	fmt.Println("server (serverHelloDone) ->")
 	c.writeRecord(HANDSHAKE, m)
 
-	msg, _ = c.readRecord(HANDSHAKE)
-	c.receiveClientKeyExchange(msg)
+	r, _ = c.readRecord(HANDSHAKE)
+	h = deserializeHandshakeMessage(r)
+	c.receiveClientKeyExchange(h.message)
 
-	msg, _ = c.readRecord(CHANGE_CIPHER_SPEC)
+	r, _ = c.readRecord(CHANGE_CIPHER_SPEC)
 	//TODO: do something about the changeCipher
 
-	msg, _ = c.readRecord(HANDSHAKE)
-	c.receiveFinished(msg) //???
+	r, _ = c.readRecord(HANDSHAKE)
+	h = deserializeHandshakeMessage(r)
+	c.receiveFinished(h.message) //???
+
+	fmt.Println("server (changeCipherSpec) ->")
+	c.writeRecord(CHANGE_CIPHER_SPEC, []byte{1})
+
+	m, _ = c.sendFinished()
+	fmt.Println("server (finished) ->")
+	c.writeRecord(HANDSHAKE, m)
 }

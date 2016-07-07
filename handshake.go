@@ -10,6 +10,10 @@ import (
 	"time"
 )
 
+type handshaker interface {
+	doHandshake()
+}
+
 // See 5246, section 7.  The TLS Handshaking Protocols
 
 // The Handshake Protocol is responsible for negotiating a session

@@ -15,6 +15,8 @@ type handshakeServer struct {
 	//XXX Why does tls.Config has an []Certificate?
 	tls.Certificate
 
+	recordProtocol
+
 	clientRandom, serverRandom [32]byte
 	preMasterSecret            []byte
 	bytes.Buffer
@@ -134,8 +136,11 @@ func (s *handshakeServer) sendServerHelloDone() ([]byte, error) {
 }
 
 // func receiveCertificate()
-// func receiveClientKeyExchange()
 // func receiveCertificateVerify()
+func (s *handshakeServer) receiveClientKeyExchange(m []byte) error {
+	//TODO
+	return nil
+}
 
 func (s *handshakeServer) receiveFinished(m []byte) error {
 	s.Write(m)
@@ -230,4 +235,33 @@ func serializeCertificate(c *certificateBody) ([]byte, error) {
 	cert := append(certificateListLen[:], certListBody...)
 
 	return cert, nil
+}
+
+func (c *handshakeServer) doHandshake() {
+	msg, _ := c.readRecord(HANDSHAKE)
+	m, _ := c.receiveClientHello(msg)
+	c.writeRecord(HANDSHAKE, m)
+
+	//TODO: they should all be in receive client hello
+	m, _ = c.sendCertificate()
+	c.writeRecord(HANDSHAKE, m)
+
+	//IF we need a Server Key Exchange Message,
+	//send it NOW.
+
+	//IF we need a Certificate Request,
+	//send it NOW.
+
+	//MUST always finishes with a serverHelloDone
+	m, _ = c.sendServerHelloDone()
+	c.writeRecord(HANDSHAKE, m)
+
+	msg, _ = c.readRecord(HANDSHAKE)
+	c.receiveClientKeyExchange(msg)
+
+	msg, _ = c.readRecord(CHANGE_CIPHER_SPEC)
+	//TODO: do something about the changeCipher
+
+	msg, _ = c.readRecord(HANDSHAKE)
+	c.receiveFinished(msg) //???
 }

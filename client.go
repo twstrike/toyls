@@ -18,6 +18,8 @@ type handshakeClient struct {
 	serverCertificate     *x509.Certificate
 	shouldSendCertificate bool
 
+	recordProtocol
+
 	clientRandom, serverRandom [32]byte
 	preMasterSecret            []byte
 	bytes.Buffer
@@ -227,11 +229,38 @@ func serializeClientHello(h *clientHelloBody) ([]byte, error) {
 	return hello, nil
 }
 
-// See 7.4.1.  Hello Messages
-func beginSession() *session {
-	//TODO
-	//record layer's connection state encryption, hash, and
-	//   compression algorithms are initialized to null
+//Client initiates the handshake
+func (c *handshakeClient) doHandshake() {
+	//XXX Where should we handle the helloRequest?
 
-	return nil
+	msg, _ := c.readRecord(HANDSHAKE)
+	h, _ := c.sendClientHello()
+
+	//XXX handle error
+	c.writeRecord(HANDSHAKE, h)
+
+	msg, _ = c.readRecord(HANDSHAKE)
+	c.receiveServerHello(msg)
+
+	msg, _ = c.readRecord(HANDSHAKE)
+	c.receiveCertificate(msg)
+
+	msg, _ = c.readRecord(HANDSHAKE)
+	toSend, _ := c.receiveServerHelloDone(msg)
+
+	//TODO: rewrite this
+	for _, s := range toSend {
+		c.writeRecord(HANDSHAKE, s)
+	}
+
+	c.writeRecord(CHANGE_CIPHER_SPEC, []byte{1})
+
+	m, _ := c.sendFinished()
+	c.writeRecord(HANDSHAKE, m)
+
+	msg, _ = c.readRecord(CHANGE_CIPHER_SPEC)
+	//TODO: do something about the change cipher
+
+	msg, _ = c.readRecord(HANDSHAKE)
+	//TODO: do something about the finished
 }

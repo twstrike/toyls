@@ -308,6 +308,7 @@ func (c *Conn) compress(plainText TLSPlaintext) (TLSCompressed, error) {
 	return compressed, nil
 }
 
+//XXX Remove me
 func (c *Conn) handlePlainText(plaintext TLSPlaintext, toSend chan []byte) {
 	//Should we check the version?
 
@@ -315,12 +316,6 @@ func (c *Conn) handlePlainText(plaintext TLSPlaintext, toSend chan []byte) {
 	default:
 		panic("unsupported content type")
 	case HANDSHAKE:
-		err := c.receiveHandshakeMessage(plaintext.fragment, toSend)
-		if err != nil {
-			//send alert message?
-			return
-		}
-
 		return
 	case CHANGE_CIPHER_SPEC:
 		//TODO: should store that it received the changeCipher
@@ -330,147 +325,6 @@ func (c *Conn) handlePlainText(plaintext TLSPlaintext, toSend chan []byte) {
 	}
 
 	return
-}
-
-func (c *Conn) receiveHandshakeMessage(msg []byte, toSend chan []byte) error {
-	h := deserializeHandshakeMessage(msg)
-
-	switch h.msgType {
-	case helloRequestType:
-		m, err := c.receiveHelloRequest(h.message)
-		if err != nil {
-			return err
-		}
-
-		m, err = c.sendHandshake(m)
-		if err != nil {
-			return err
-		}
-
-		toSend <- m
-	case clientHelloType:
-		m, err := c.receiveClientHello(h.message)
-		if err != nil {
-			return err
-		}
-
-		m, err = c.sendHandshake(m)
-		if err != nil {
-			return err
-		}
-
-		toSend <- m
-
-		//TODO: check if the key exchange uses a certificate.
-		m, err = c.handshakeServer.sendCertificate()
-		if err != nil {
-			return err
-		}
-
-		m, err = c.sendHandshake(m)
-		if err != nil {
-			return err
-		}
-
-		toSend <- m
-
-		//IF we need a Server Key Exchange Message,
-		//send it NOW.
-
-		//IF we need a Certificate Request,
-		//send it NOW.
-
-		//MUST always finishes with a serverHelloDone
-		m, err = c.sendServerHelloDone()
-		if err != nil {
-			return err
-		}
-
-		m, err = c.sendHandshake(m)
-		if err != nil {
-			return err
-		}
-
-		toSend <- m
-
-	case serverHelloType:
-		err := c.receiveServerHello(h.message)
-		if err != nil {
-			return err
-		}
-
-	case certificateType:
-		err := c.receiveCertificate(h.message)
-		if err != nil {
-			return err
-		}
-
-	case serverKeyExchangeType:
-		//Not yet
-	case certificateRequestType:
-		//Not yet
-	case serverHelloDoneType:
-		ms, err := c.receiveServerHelloDone(h.message)
-		if err != nil {
-			return err
-		}
-
-		for _, hm := range ms {
-			rm, err := c.sendHandshake(hm)
-			if err != nil {
-				return err
-			}
-
-			toSend <- rm
-		}
-
-		m, err := c.sendChangeCipher()
-		if err != nil {
-			return err
-		}
-
-		toSend <- m
-
-		m, err = c.handshakeClient.sendFinished()
-		if err != nil {
-			return err
-		}
-
-		m, err = c.sendHandshake(m)
-		if err != nil {
-			return err
-		}
-
-		toSend <- m
-	case certificateVerifyType:
-		//Not yet
-	case clientKeyExchangeType:
-		//Not yet
-	case finishedType:
-		//TODO: Chek if it has received a changeCipher. How will we know if the received
-		//changeCipher is from this handshake or not?
-
-		m, err := c.sendChangeCipher()
-		if err != nil {
-			return err
-		}
-
-		toSend <- m
-
-		m, err = c.handshakeClient.sendFinished()
-		if err != nil {
-			return err
-		}
-
-		m, err = c.sendHandshake(m)
-		if err != nil {
-			return err
-		}
-
-		toSend <- m
-	}
-
-	return nil
 }
 
 func readFromUntil(in io.Reader, i int) ([]byte, error) {

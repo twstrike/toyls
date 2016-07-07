@@ -5,6 +5,11 @@ import (
 	"hash"
 )
 
+type recordProtocol interface {
+	readRecord(ContentType) ([]byte, error)
+	writeRecord(ContentType, []byte) error
+}
+
 type connectionEnd uint8
 
 const (

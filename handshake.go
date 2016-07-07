@@ -196,8 +196,12 @@ func serializeRandom(dst []byte, r *random) []byte {
 }
 
 func serializeEncryptedPreMasterSecret(s *encryptedPreMasterSecretBody) ([]byte, error) {
-	dst := make([]byte, len(s.preMasterSecret))
-	copy(dst, s.preMasterSecret)
+	l := len(s.preMasterSecret)
+	dst := make([]byte, l+2)
+	len := writeBytesFromUint16(uint16(l))
+
+	copy(dst[:2], len[:])
+	copy(dst[2:], s.preMasterSecret)
 	return dst, nil
 }
 

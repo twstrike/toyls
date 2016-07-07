@@ -195,7 +195,7 @@ func (s *ToySuite) TestClientReceiveServerHelloDone(c *C) {
 	encryptedPreMasterKey := deserializeHandshakeMessage(toSend[0])
 
 	secretKey := serverCertificate.PrivateKey.(*rsa.PrivateKey)
-	preMasterSecret, err := rsa.DecryptPKCS1v15(rand.Reader, secretKey, encryptedPreMasterKey.message)
+	preMasterSecret, err := rsa.DecryptPKCS1v15(rand.Reader, secretKey, encryptedPreMasterKey.message[2:])
 
 	c.Assert(err, IsNil)
 	c.Assert(len(preMasterSecret), Equals, 48)
@@ -231,7 +231,7 @@ func (s *ToySuite) TestClientReceiveCertificateRequestAndServerHelloDone(c *C) {
 	encryptedPreMasterKey := deserializeHandshakeMessage(toSend[1])
 
 	secretKey := serverCertificate.PrivateKey.(*rsa.PrivateKey)
-	preMasterSecret, err := rsa.DecryptPKCS1v15(rand.Reader, secretKey, encryptedPreMasterKey.message)
+	preMasterSecret, err := rsa.DecryptPKCS1v15(rand.Reader, secretKey, encryptedPreMasterKey.message[2:])
 
 	c.Assert(err, IsNil)
 	c.Assert(len(preMasterSecret), Equals, 48)

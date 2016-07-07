@@ -5,7 +5,6 @@ import (
 	"crypto/subtle"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"io"
 	"net"
 )
@@ -54,11 +53,11 @@ func NewConn(entity connectionEnd) *Conn {
 	switch entity {
 	case CLIENT:
 		conn.handshakeClient = &handshakeClient{
-			recordProtocol: conn,
+			recordProtocol: &conn,
 		}
 	case SERVER:
 		conn.handshakeServer = &handshakeServer{
-			recordProtocol: conn,
+			recordProtocol: &conn,
 		}
 	}
 	return &conn
@@ -106,16 +105,11 @@ func (c Conn) writeRecord(contentType ContentType, content []byte) error {
 }
 
 func (c *Conn) Handshake() {
-	fmt.Println("Alice ClientHello ---------> Bob")
-	fmt.Println("Alice <--------- ServerHello Bob")
-	fmt.Println("Alice <--------- Certificate Bob")
-	fmt.Println("Alice <----- ServerHelloDone Bob")
-	fmt.Println("Alice ClientKeyExchange ---> Bob")
-	fmt.Println("Alice ChangeCipherSpec ----> Bob")
-	fmt.Println("Alice Finished ------------> Bob")
-	fmt.Println("Alice <----------- Finished  Bob")
-	if c.params.entity == CLIENT {
+	switch c.params.entity {
+	case CLIENT:
 		c.handshakeClient.doHandshake()
+	case SERVER:
+		c.handshakeServer.doHandshake()
 	}
 	return
 }

@@ -27,6 +27,11 @@ func newHandshakeClient() *handshakeClient {
 	return &handshakeClient{}
 }
 
+func (c *handshakeClient) receiveHelloRequest(r []byte) ([]byte, error) {
+	c.Write(r)
+	return c.sendClientHello()
+}
+
 func (c *handshakeClient) sendClientHello() ([]byte, error) {
 	clientRandom := newRandom(rand.Reader)
 	message, err := serializeClientHello(&clientHelloBody{

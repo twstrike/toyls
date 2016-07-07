@@ -336,7 +336,7 @@ func (c *Conn) receiveHandshakeMessage(msg []byte, toSend chan []byte) error {
 
 	switch h.msgType {
 	case helloRequestType:
-		m, err := c.sendClientHello()
+		m, err := c.receiveHelloRequest(h.message)
 		if err != nil {
 			return err
 		}
@@ -422,12 +422,6 @@ func (c *Conn) receiveHandshakeMessage(msg []byte, toSend chan []byte) error {
 
 			toSend <- rm
 		}
-
-		m, err := c.sendClientKeyExchange()
-		if err != nil {
-			return err
-		}
-		toSend <- m
 
 		m, err = c.sendChangeCipher()
 		if err != nil {

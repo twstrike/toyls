@@ -25,13 +25,14 @@ func newHandshakeServer() *handshakeServer {
 }
 
 func (s *handshakeServer) receiveClientHello(m []byte) ([]byte, error) {
+	s.Write(m)
+
 	clientHello, err := deserializeClientHello(m)
 	if err != nil {
 		return nil, err
 	}
 
 	serializeRandom(s.clientRandom[:], &clientHello.random)
-	s.Write(m)
 
 	return s.agree(clientHello)
 }

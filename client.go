@@ -229,11 +229,6 @@ func serializeClientHello(h *clientHelloBody) ([]byte, error) {
 	return hello, nil
 }
 
-func (c *handshakeClient) hello() error {
-	c.doHandshake()
-	return nil
-}
-
 //Client initiates the handshake
 func (c *handshakeClient) doHandshake() {
 	//XXX Where should we handle the helloRequest?

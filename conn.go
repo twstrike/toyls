@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 )
@@ -21,8 +22,7 @@ type Conn struct {
 	*handshakeServer
 	*handshakeClient
 
-	rawConn     net.Conn
-	calledClose int
+	rawConn net.Conn
 }
 
 func newClient() *Conn {
@@ -39,9 +39,6 @@ func NewConn(entity connectionEnd) *Conn {
 			readSequenceNumber:  [8]byte{},
 			writeSequenceNumber: [8]byte{},
 		},
-		handshakeServer: &handshakeServer{},
-		handshakeClient: &handshakeClient{},
-
 		params: securityParameters{
 			entity:               entity,
 			inCipher:             nullStreamCipher{},
@@ -54,6 +51,16 @@ func NewConn(entity connectionEnd) *Conn {
 		},
 		chunkSize: uint16(0x4000),
 	}
+	switch entity {
+	case CLIENT:
+		conn.handshakeClient = &handshakeClient{
+			recordProtocol: conn,
+		}
+	case SERVER:
+		conn.handshakeServer = &handshakeServer{
+			recordProtocol: conn,
+		}
+	}
 	return &conn
 }
 
@@ -63,84 +70,75 @@ func (c *Conn) SetChunkSize(chunkSize uint16) {
 	}
 }
 
-func (c *Conn) Close() {
+func (c Conn) Close() {
 	c.rawConn.Close()
 	return
 }
 
-func (c *Conn) send(contentType ContentType, version protocolVersion, content []byte) ([]byte, error) {
+func (c Conn) writeRecord(contentType ContentType, content []byte) error {
 	var err error
-	ret := []byte{}
+	payload := []byte{}
 	var plainText TLSPlaintext
 
 	for len(content) > 0 {
-		plainText, content, err = c.fragment(contentType, version, content)
+		plainText, content, err = c.fragment(contentType, VersionTLS12, content)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		compressed, err := c.compress(plainText)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		cipherText, err := c.macAndEncrypt(compressed)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		seq := binary.BigEndian.Uint64(c.state.writeSequenceNumber[:]) //TODO: alert for renegotiation
 		binary.BigEndian.PutUint64(c.state.writeSequenceNumber[:], seq+1)
-		ret = append(ret, cipherText.serialize()...)
+		payload = append(payload, cipherText.serialize()...)
 	}
+	c.rawConn.Write(payload)
 
-	return ret, nil
+	return nil
 }
 
-func (c *Conn) receive(in io.Reader) chan []byte {
-	toSend := make(chan []byte, 4)
-	go func() {
-		for {
-			cipherText, err := c.handleFragment(in)
-			if err != nil {
-				panic(err)
-			}
-			compressed, err := c.handleCipherText(cipherText)
-			if err != nil {
-				panic(err)
-			}
-			plainText, err := c.handleCompressed(compressed)
-			if err != nil {
-				panic(err)
-			}
-			c.handlePlainText(plainText, toSend)
-			seq := binary.BigEndian.Uint64(c.state.readSequenceNumber[:]) //TODO: alert for renegotiation
-			binary.BigEndian.PutUint64(c.state.readSequenceNumber[:], seq+1)
-		}
-	}()
-
-	return toSend
+func (c *Conn) Handshake() {
+	fmt.Println("Alice ClientHello ---------> Bob")
+	fmt.Println("Alice <--------- ServerHello Bob")
+	fmt.Println("Alice <--------- Certificate Bob")
+	fmt.Println("Alice <----- ServerHelloDone Bob")
+	fmt.Println("Alice ClientKeyExchange ---> Bob")
+	fmt.Println("Alice ChangeCipherSpec ----> Bob")
+	fmt.Println("Alice Finished ------------> Bob")
+	fmt.Println("Alice <----------- Finished  Bob")
+	if c.params.entity == CLIENT {
+		c.handshakeClient.doHandshake()
+	}
+	return
 }
 
-func (c *Conn) hello() ([]byte, error) {
-	h, err := c.sendClientHello()
+func (c Conn) readRecord(contentType ContentType) ([]byte, error) {
+	cipherText, err := c.handleFragment(c.rawConn)
 	if err != nil {
-		//TODO send alert message
-		panic("error")
+		panic(err)
 	}
-
-	//After this, receiving anything but a serverHello is a fatal
-	//error
-
-	return c.sendHandshake(h)
-}
-
-func (c *Conn) sendHandshake(h []byte) ([]byte, error) {
-	return c.send(HANDSHAKE, VersionTLS12, h)
-}
-
-func (c *Conn) sendChangeCipher() ([]byte, error) {
-	return c.send(CHANGE_CIPHER_SPEC, VersionTLS12, []byte{1})
+	compressed, err := c.handleCipherText(cipherText)
+	if err != nil {
+		panic(err)
+	}
+	plainText, err := c.handleCompressed(compressed)
+	if err != nil {
+		panic(err)
+	}
+	seq := binary.BigEndian.Uint64(c.state.readSequenceNumber[:]) //TODO: alert for renegotiation
+	binary.BigEndian.PutUint64(c.state.readSequenceNumber[:], seq+1)
+	if plainText.contentType != contentType {
+		return plainText.fragment, errors.New("received unexpected message")
+	}
+	return plainText.fragment, nil
 }
 
 func (c *Conn) fragment(contentType ContentType, version protocolVersion, content []byte) (TLSPlaintext, []byte, error) {
@@ -306,25 +304,6 @@ func (c *Conn) compress(plainText TLSPlaintext) (TLSCompressed, error) {
 	compressed.version = plainText.version
 	compressed.fragment, compressed.length = c.params.compressionAlgorithm.compress(plainText.fragment)
 	return compressed, nil
-}
-
-//XXX Remove me
-func (c *Conn) handlePlainText(plaintext TLSPlaintext, toSend chan []byte) {
-	//Should we check the version?
-
-	switch plaintext.contentType {
-	default:
-		panic("unsupported content type")
-	case HANDSHAKE:
-		return
-	case CHANGE_CIPHER_SPEC:
-		//TODO: should store that it received the changeCipher
-		//and react to it
-	case ALERT:
-		panic("Receiveing ALERT")
-	}
-
-	return
 }
 
 func readFromUntil(in io.Reader, i int) ([]byte, error) {

@@ -2,7 +2,6 @@ package toyls
 
 import (
 	"flag"
-	"fmt"
 	"net"
 
 	. "gopkg.in/check.v1"
@@ -38,24 +37,4 @@ func DialWithDialer(dialer *net.Dialer, network, addr string) (*Conn, error) {
 	conn := newClient()
 	conn.rawConn = rawConn
 	return conn, err
-}
-
-func (c *Conn) Handshake() {
-	fmt.Println("Alice ClientHello ---------> Bob")
-	fmt.Println("Alice <--------- ServerHello Bob")
-	fmt.Println("Alice <--------- Certificate Bob")
-	fmt.Println("Alice <----- ServerHelloDone Bob")
-	fmt.Println("Alice ClientKeyExchange ---> Bob")
-	fmt.Println("Alice ChangeCipherSpec ----> Bob")
-	fmt.Println("Alice Finished ------------> Bob")
-	fmt.Println("Alice <----------- Finished  Bob")
-	clientHello, _ := c.hello()
-	c.rawConn.Write(clientHello)
-	var toSends chan []byte
-	toSends = c.receive(c.rawConn)
-	for {
-		toSend := <-toSends
-		c.rawConn.Write(toSend)
-	}
-	return
 }

@@ -232,21 +232,36 @@ func serializeClientHello(h *clientHelloBody) ([]byte, error) {
 //Client initiates the handshake
 func (c *handshakeClient) doHandshake() {
 	//XXX Where should we handle the helloRequest?
-	m, _ := c.sendClientHello()
+	m, err := c.sendClientHello()
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 	fmt.Println("client (clientHello) ->")
 	c.writeRecord(HANDSHAKE, m)
 
-	r, _ := c.readRecord(HANDSHAKE)
+	r, err := c.readRecord(HANDSHAKE)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 	h := deserializeHandshakeMessage(r)
 	c.receiveServerHello(h.message)
 
-	r, _ = c.readRecord(HANDSHAKE)
+	r, err = c.readRecord(HANDSHAKE)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 	h = deserializeHandshakeMessage(r)
 	c.receiveCertificate(h.message)
 
-	r, _ = c.readRecord(HANDSHAKE)
+	r, err = c.readRecord(HANDSHAKE)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 	h = deserializeHandshakeMessage(r)
-	toSend, _ := c.receiveServerHelloDone(h.message)
+	toSend, err := c.receiveServerHelloDone(h.message)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 
 	fmt.Println("client (clientKeyExchange) ->")
 	c.writeRecord(HANDSHAKE, toSend[0])
@@ -258,10 +273,16 @@ func (c *handshakeClient) doHandshake() {
 	fmt.Println("client (finished) ->")
 	c.writeRecord(HANDSHAKE, m)
 
-	r, _ = c.readRecord(CHANGE_CIPHER_SPEC)
+	r, err = c.readRecord(CHANGE_CIPHER_SPEC)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 	//TODO: do something about the change cipher
 
-	r, _ = c.readRecord(HANDSHAKE)
+	r, err = c.readRecord(HANDSHAKE)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 	h = deserializeHandshakeMessage(r)
 	//TODO: do something about the finished
 }

@@ -5,11 +5,24 @@ import (
 	"crypto/subtle"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 )
 
 const recordHeaderLen = 5
+
+func Dial(network, addr string) (*Conn, error) {
+	return DialWithDialer(new(net.Dialer), network, addr)
+}
+
+func DialWithDialer(dialer *net.Dialer, network, addr string) (*Conn, error) {
+	rawConn, err := dialer.Dial(network, addr)
+	conn := NewConn(CLIENT)
+	conn.rawConn = rawConn
+	conn.doHandshake()
+	return conn, err
+}
 
 type Conn struct {
 	state  connectionState
@@ -121,7 +134,7 @@ func (c Conn) readRecord(contentType ContentType) ([]byte, error) {
 	seq := binary.BigEndian.Uint64(c.state.readSequenceNumber[:]) //TODO: alert for renegotiation
 	binary.BigEndian.PutUint64(c.state.readSequenceNumber[:], seq+1)
 	if plainText.contentType != contentType {
-		return plainText.fragment, errors.New("received unexpected message")
+		return plainText.fragment, fmt.Errorf("received unexpected message, %+v", plainText)
 	}
 	return plainText.fragment, nil
 }

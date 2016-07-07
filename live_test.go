@@ -2,7 +2,6 @@ package toyls
 
 import (
 	"flag"
-	"net"
 
 	. "gopkg.in/check.v1"
 )
@@ -25,16 +24,4 @@ func (s *LiveToySuite) TestClientHandshake(c *C) {
 		panic("failed to connect: " + err.Error())
 	}
 	conn.Close()
-}
-
-func Dial(network, addr string) (*Conn, error) {
-	return DialWithDialer(new(net.Dialer), network, addr)
-}
-
-func DialWithDialer(dialer *net.Dialer, network, addr string) (*Conn, error) {
-	rawConn, err := dialer.Dial(network, addr)
-	conn := NewConn(SERVER)
-	conn.rawConn = rawConn
-	conn.doHandshake()
-	return conn, err
 }

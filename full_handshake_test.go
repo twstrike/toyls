@@ -12,6 +12,12 @@ type record struct {
 	body        []byte
 }
 
+func pipeHandshakers(c, s handshaker) {
+	client, server := newPipe()
+	c.setRecordProtocol(client)
+	s.setRecordProtocol(server)
+}
+
 func newPipe() (recordProtocol, recordProtocol) {
 	left := make(chan record, 1)
 	right := make(chan record, 1)
@@ -48,7 +54,7 @@ func (s *ToySuite) TestFullHandshakeNew(c *C) {
 	server.handshaker.(*handshakeServer).Certificate, err = tls.X509KeyPair(pem, pem)
 	c.Assert(err, IsNil)
 
-	client.handshaker.(*handshakeClient).recordProtocol, server.handshaker.(*handshakeServer).recordProtocol = newPipe()
+	pipeHandshakers(client.handshaker, server.handshaker)
 
 	ok := make(chan bool, 0)
 	go func() {

@@ -23,16 +23,6 @@ type Conn struct {
 	calledClose int
 }
 
-type client struct {
-	*Conn
-	*handshakeClient
-}
-
-type server struct {
-	*Conn
-	*handshakeServer
-}
-
 func newClient() *Conn {
 	return NewConn(CLIENT)
 }

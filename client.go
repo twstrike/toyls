@@ -270,3 +270,7 @@ func (c *handshakeClient) doHandshake() {
 	h = deserializeHandshakeMessage(r)
 	//TODO: do something about the finished
 }
+
+func (c *handshakeClient) setRecordProtocol(r recordProtocol) {
+	c.recordProtocol = r
+}

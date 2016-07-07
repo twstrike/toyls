@@ -280,3 +280,7 @@ func (c *handshakeServer) doHandshake() {
 	fmt.Println("server (finished) ->")
 	c.writeRecord(HANDSHAKE, m)
 }
+
+func (c *handshakeServer) setRecordProtocol(r recordProtocol) {
+	c.recordProtocol = r
+}

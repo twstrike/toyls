@@ -12,6 +12,7 @@ import (
 
 type handshaker interface {
 	doHandshake()
+	setRecordProtocol(recordProtocol)
 }
 
 // See 5246, section 7.  The TLS Handshaking Protocols

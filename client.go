@@ -266,8 +266,15 @@ func (c *handshakeClient) doHandshake() {
 	fmt.Println("client (clientKeyExchange) ->")
 	c.writeRecord(HANDSHAKE, toSend[0])
 
+	//Will prepare everything in the pending write state to encrypt the finished
+	//c.recordProtocol.establishKeys()
+
 	fmt.Println("client (changeCipherSpec) ->")
 	c.writeRecord(CHANGE_CIPHER_SPEC, []byte{1})
+
+	// Immediately after sending [ChangeCipherSpec], the sender MUST instruct the
+	// record layer to make the write pending state the write active state.
+	//c.recordProtocol.makeWritePendingStateTheWriteActiveState()
 
 	m, _ = c.sendFinished()
 	fmt.Println("client (finished) ->")
@@ -277,7 +284,10 @@ func (c *handshakeClient) doHandshake() {
 	if err != nil {
 		fmt.Println(err.Error())
 	}
-	//TODO: do something about the change cipher
+
+	//Reception of [ChangeCipherSpec] causes the receiver to instruct the record
+	//layer to immediately copy the read pending state into the read current state.
+	//c.recordProtocol.copyReadPendingStateIntoCurrentReadState()
 
 	r, err = c.readRecord(HANDSHAKE)
 	if err != nil {

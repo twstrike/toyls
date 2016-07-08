@@ -266,17 +266,15 @@ func (c *handshakeClient) doHandshake() {
 	fmt.Println("client (clientKeyExchange) ->")
 	c.writeRecord(HANDSHAKE, toSend[0])
 
-	//Golang implementation update the keys before the changeCipher
-	//I'm not sure about the implications of this order in our implementation
+	c.masterSecret = computeMasterSecret(c.preMasterSecret[:], c.clientRandom[:], c.serverRandom[:])
+	c.recordProtocol.establishKeys(c.masterSecret, c.clientRandom, c.serverRandom)
 
 	fmt.Println("client (changeCipherSpec) ->")
 	c.writeRecord(CHANGE_CIPHER_SPEC, []byte{1})
 
-	// Immediately after sending [ChangeCipherSpec], the sender MUST instruct the
-	// record layer to make the write pending state the write active state.
-	//Will prepare everything in the pending write state to encrypt the finished
-	c.masterSecret = computeMasterSecret(c.preMasterSecret[:], c.clientRandom[:], c.serverRandom[:])
-	c.recordProtocol.establishKeys(c.masterSecret, c.clientRandom, c.serverRandom)
+	//Immediately after sending [ChangeCipherSpec], the sender MUST instruct the
+	//record layer to make the write pending state the write active state.
+	c.recordProtocol.changeWriteCipherSpec()
 
 	m, _ = c.sendFinished()
 	fmt.Println("client (finished) ->")
@@ -289,7 +287,7 @@ func (c *handshakeClient) doHandshake() {
 
 	//Reception of [ChangeCipherSpec] causes the receiver to instruct the record
 	//layer to immediately copy the read pending state into the read current state.
-	//c.recordProtocol.copyReadPendingStateIntoCurrentReadState()
+	c.recordProtocol.changeReadCipherSpec()
 
 	r, err = c.readRecord(HANDSHAKE)
 	if err != nil {

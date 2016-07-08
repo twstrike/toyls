@@ -36,7 +36,7 @@ func (s *ToySuite) TestConnHandleStreamCipherText(c *C) {
 		version:     VersionTLS12,
 		length:      uint16(len(ciphered.content)),
 	}
-	ciphered.MAC = conn.params.macAlgorithm.MAC(nil, conn.state.writeSequenceNumber[0:], cipherText.header(), ciphered.content)
+	ciphered.MAC = conn.securityParams.macAlgorithm.MAC(nil, conn.state.writeSequenceNumber[0:], cipherText.header(), ciphered.content)
 
 	cipherText.fragment = ciphered.Marshal()
 	cipherText.length = uint16(len(cipherText.fragment))
@@ -53,15 +53,15 @@ func (s *ToySuite) TestConnHandleStreamCipherText(c *C) {
 func (s *ToySuite) TestConnHandleBlockCipherText(c *C) {
 	connA := NewConn(CLIENT)
 	connB := NewConn(SERVER)
-	connA.params.masterSecret = [48]byte{0x03, 0x03, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01}
+	connA.securityParams.masterSecret = [48]byte{0x03, 0x03, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01}
 
-	wp := keysFromMasterSecret(connA.params)
+	wp := keysFromMasterSecret(connA.securityParams)
 	block, err := aes.NewCipher(wp.clientKey)
 
-	connA.params.outCipher = cipher.NewCBCEncrypter(block, wp.clientIV)
-	connB.params.inCipher = cipher.NewCBCDecrypter(block, wp.clientIV)
-	connA.params.recordIVLength = uint8(connA.params.outCipher.(cbcMode).BlockSize())
-	connB.params.recordIVLength = uint8(connB.params.inCipher.(cbcMode).BlockSize())
+	connA.securityParams.outCipher = cipher.NewCBCEncrypter(block, wp.clientIV)
+	connB.securityParams.inCipher = cipher.NewCBCDecrypter(block, wp.clientIV)
+	connA.securityParams.recordIVLength = uint8(connA.securityParams.outCipher.(cbcMode).BlockSize())
+	connB.securityParams.recordIVLength = uint8(connB.securityParams.inCipher.(cbcMode).BlockSize())
 
 	ciphered := GenericBlockCipher{
 		IV:      wp.clientIV,
@@ -72,14 +72,14 @@ func (s *ToySuite) TestConnHandleBlockCipherText(c *C) {
 		version:     VersionTLS12,
 		length:      uint16(len(ciphered.content)),
 	}
-	ciphered.MAC = connA.params.macAlgorithm.MAC(nil, connA.state.writeSequenceNumber[0:], cipherText.header(), ciphered.content)
+	ciphered.MAC = connA.securityParams.macAlgorithm.MAC(nil, connA.state.writeSequenceNumber[0:], cipherText.header(), ciphered.content)
 
-	ciphered.padToBlockSize(connA.params.outCipher.(cbcMode).BlockSize())
+	ciphered.padToBlockSize(connA.securityParams.outCipher.(cbcMode).BlockSize())
 
 	cipherText.fragment = make([]byte, len(ciphered.Marshal()))
 	copy(cipherText.fragment, ciphered.IV)
 
-	connA.params.outCipher.(cbcMode).CryptBlocks(cipherText.fragment[connA.params.recordIVLength:], ciphered.Marshal()[connA.params.recordIVLength:])
+	connA.securityParams.outCipher.(cbcMode).CryptBlocks(cipherText.fragment[connA.securityParams.recordIVLength:], ciphered.Marshal()[connA.securityParams.recordIVLength:])
 	cipherText.length = uint16(len(cipherText.fragment))
 
 	compressed, err := connB.handleCipherText(cipherText)
@@ -128,14 +128,14 @@ func (s *ToySuite) TestConnStreamMacAndEncrypt(c *C) {
 func (s *ToySuite) TestConnBlockMacAndEncrypt(c *C) {
 	connA := NewConn(CLIENT)
 	connB := NewConn(SERVER)
-	connA.params.masterSecret = [48]byte{0x03, 0x03, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01}
-	wp := keysFromMasterSecret(connA.params)
+	connA.securityParams.masterSecret = [48]byte{0x03, 0x03, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01}
+	wp := keysFromMasterSecret(connA.securityParams)
 	connA.wp = wp
 	block, err := aes.NewCipher(wp.clientKey)
-	connA.params.outCipher = cipher.NewCBCEncrypter(block, wp.clientIV)
-	connB.params.inCipher = cipher.NewCBCDecrypter(block, wp.clientIV)
-	connA.params.recordIVLength = uint8(connA.params.outCipher.(cbcMode).BlockSize())
-	connB.params.recordIVLength = uint8(connB.params.inCipher.(cbcMode).BlockSize())
+	connA.securityParams.outCipher = cipher.NewCBCEncrypter(block, wp.clientIV)
+	connB.securityParams.inCipher = cipher.NewCBCDecrypter(block, wp.clientIV)
+	connA.securityParams.recordIVLength = uint8(connA.securityParams.outCipher.(cbcMode).BlockSize())
+	connB.securityParams.recordIVLength = uint8(connB.securityParams.inCipher.(cbcMode).BlockSize())
 
 	compressed := TLSCompressed{
 		contentType: HANDSHAKE,

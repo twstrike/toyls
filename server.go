@@ -266,15 +266,14 @@ func (c *handshakeServer) doHandshake() {
 	h = deserializeHandshakeMessage(r)
 	c.receiveClientKeyExchange(h.message)
 
-	//Will prepare everything in the pending write state to encrypt the finished
-	//c.recordProtocol.establishKeys()
+	c.masterSecret = computeMasterSecret(c.preMasterSecret[:], c.clientRandom[:], c.serverRandom[:])
+	c.recordProtocol.establishKeys(c.masterSecret, c.clientRandom, c.serverRandom)
 
 	r, _ = c.readRecord(CHANGE_CIPHER_SPEC)
 
 	//Reception of [ChangeCipherSpec] causes the receiver to instruct the record
 	//layer to immediately copy the read pending state into the read current state.
-	c.masterSecret = computeMasterSecret(c.preMasterSecret[:], c.clientRandom[:], c.serverRandom[:])
-	c.recordProtocol.establishKeys(c.masterSecret, c.clientRandom, c.serverRandom)
+	c.recordProtocol.changeReadCipherSpec()
 
 	r, _ = c.readRecord(HANDSHAKE)
 	h = deserializeHandshakeMessage(r)
@@ -283,9 +282,9 @@ func (c *handshakeServer) doHandshake() {
 	fmt.Println("server (changeCipherSpec) ->")
 	c.writeRecord(CHANGE_CIPHER_SPEC, []byte{1})
 
-	// Immediately after sending [ChangeCipherSpec], the sender MUST instruct the
-	// record layer to make the write pending state the write active state.
-	//c.recordProtocol.makeWritePendingStateTheWriteActiveState()
+	//Immediately after sending [ChangeCipherSpec], the sender MUST instruct the
+	//record layer to make the write pending state the write active state.
+	c.recordProtocol.changeWriteCipherSpec()
 
 	m, _ = c.sendFinished()
 	fmt.Println("server (finished) ->")

@@ -8,7 +8,10 @@ import (
 type recordProtocol interface {
 	readRecord(ContentType) ([]byte, error)
 	writeRecord(ContentType, []byte) error
+
 	establishKeys([48]byte, [32]byte, [32]byte)
+	changeWriteCipherSpec()
+	changeReadCipherSpec()
 }
 
 type connectionEnd uint8

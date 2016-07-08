@@ -48,6 +48,14 @@ func (r *dummyRecordProtocol) establishKeys([48]byte, [32]byte, [32]byte) {
 	//We dont care about security
 }
 
+func (r *dummyRecordProtocol) changeWriteCipherSpec() {
+	//We dont care about security
+}
+
+func (r *dummyRecordProtocol) changeReadCipherSpec() {
+	//We dont care about security
+}
+
 func (s *ToySuite) TestFullHandshakeNew(c *C) {
 	var err error
 

@@ -1,7 +1,9 @@
 package toyls
 
 import (
+	"crypto/aes"
 	"crypto/cipher"
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/binary"
 	"errors"
@@ -302,6 +304,51 @@ func (c *Conn) compress(plainText TLSPlaintext) (TLSCompressed, error) {
 	compressed.version = plainText.version
 	compressed.fragment, compressed.length = c.params.compressionAlgorithm.compress(plainText.fragment)
 	return compressed, nil
+}
+
+func (c *Conn) prepareCipherSpec(writeParameters writeParams) {
+	//"in" uses the server (their), "out" uses the client (our)
+	block, err := aes.NewCipher(writeParameters.clientKey)
+	if err != nil {
+		panic(err)
+	}
+	c.params.outCipher = cipher.NewCBCEncrypter(block, writeParameters.clientIV)
+
+	block, err = aes.NewCipher(writeParameters.serverKey)
+	if err != nil {
+		panic(err)
+	}
+	c.params.inCipher = cipher.NewCBCDecrypter(block, writeParameters.serverIV)
+
+	c.params.recordIVLength = uint8(c.params.outCipher.(cbcMode).BlockSize())
+
+	//XXX this is probably not used
+	c.wp = writeParameters
+}
+
+//This should establish the next (pending) write and read state
+func (c *Conn) establishKeys(masterSecret [48]byte, clientRandom, serverRandom [32]byte) {
+	//XXX This wont work until it sets the pending parameters
+	return
+
+	//XXX This should be the pending securityParameters
+	c.params = securityParameters{
+		entity: c.params.entity, //???
+
+		masterSecret: masterSecret,
+		clientRandom: clientRandom,
+		serverRandom: serverRandom,
+
+		//XXX This is all fixed to use TLS_RSA_WITH_AES_128_CBC_SHA256
+		// This should create the correct securityParameters depending on the cipher suite
+		macAlgorithm:         hmacAlgorithm{sha256.New()},
+		compressionAlgorithm: nullCompressionMethod{},
+		encKeyLength:         32,
+		fixedIVLength:        16,
+		macKeyLength:         32,
+	}
+
+	c.prepareCipherSpec(keysFromMasterSecret(c.params))
 }
 
 func readFromUntil(in io.Reader, i int) ([]byte, error) {

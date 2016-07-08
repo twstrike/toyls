@@ -20,6 +20,7 @@ type handshakeServer struct {
 
 	clientRandom, serverRandom [32]byte
 	preMasterSecret            []byte
+	masterSecret               [48]byte
 	bytes.Buffer
 }
 
@@ -153,8 +154,7 @@ func (s *handshakeServer) receiveFinished(m []byte) error {
 func (s *handshakeServer) sendFinished() ([]byte, error) {
 	//XXX This is exactly the same as the client. Should it be?
 	//TODO: Store preMasterSecret, clientRandom, serverRandom
-	masterSecret := computeMasterSecret(s.preMasterSecret[:], s.clientRandom[:], s.serverRandom[:])
-	verifyData, err := generateVerifyData(masterSecret[:], clientFinished, &s.Buffer)
+	verifyData, err := generateVerifyData(s.masterSecret[:], clientFinished, &s.Buffer)
 	if err != nil {
 		return nil, err
 	}
@@ -273,7 +273,8 @@ func (c *handshakeServer) doHandshake() {
 
 	//Reception of [ChangeCipherSpec] causes the receiver to instruct the record
 	//layer to immediately copy the read pending state into the read current state.
-	//c.recordProtocol.copyReadPendingStateIntoCurrentReadState()
+	c.masterSecret = computeMasterSecret(c.preMasterSecret[:], c.clientRandom[:], c.serverRandom[:])
+	c.recordProtocol.establishKeys(c.masterSecret, c.clientRandom, c.serverRandom)
 
 	r, _ = c.readRecord(HANDSHAKE)
 	h = deserializeHandshakeMessage(r)

@@ -22,6 +22,7 @@ type handshakeClient struct {
 
 	clientRandom, serverRandom [32]byte
 	preMasterSecret            []byte
+	masterSecret               [48]byte
 	bytes.Buffer
 }
 
@@ -167,8 +168,7 @@ func (c *handshakeClient) sendCertificateVerify() ([]byte, error) {
 }
 
 func (c *handshakeClient) sendFinished() ([]byte, error) {
-	masterSecret := computeMasterSecret(c.preMasterSecret[:], c.clientRandom[:], c.serverRandom[:])
-	verifyData, err := generateVerifyData(masterSecret[:], clientFinished, &c.Buffer)
+	verifyData, err := generateVerifyData(c.masterSecret[:], clientFinished, &c.Buffer)
 	if err != nil {
 		return nil, err
 	}
@@ -266,15 +266,17 @@ func (c *handshakeClient) doHandshake() {
 	fmt.Println("client (clientKeyExchange) ->")
 	c.writeRecord(HANDSHAKE, toSend[0])
 
-	//Will prepare everything in the pending write state to encrypt the finished
-	//c.recordProtocol.establishKeys()
+	//Golang implementation update the keys before the changeCipher
+	//I'm not sure about the implications of this order in our implementation
 
 	fmt.Println("client (changeCipherSpec) ->")
 	c.writeRecord(CHANGE_CIPHER_SPEC, []byte{1})
 
 	// Immediately after sending [ChangeCipherSpec], the sender MUST instruct the
 	// record layer to make the write pending state the write active state.
-	//c.recordProtocol.makeWritePendingStateTheWriteActiveState()
+	//Will prepare everything in the pending write state to encrypt the finished
+	c.masterSecret = computeMasterSecret(c.preMasterSecret[:], c.clientRandom[:], c.serverRandom[:])
+	c.recordProtocol.establishKeys(c.masterSecret, c.clientRandom, c.serverRandom)
 
 	m, _ = c.sendFinished()
 	fmt.Println("client (finished) ->")

@@ -8,6 +8,7 @@ import (
 type recordProtocol interface {
 	readRecord(ContentType) ([]byte, error)
 	writeRecord(ContentType, []byte) error
+	establishKeys([48]byte, [32]byte, [32]byte)
 }
 
 type connectionEnd uint8
@@ -44,6 +45,7 @@ func (nullStreamCipher) XORKeyStream(dst, src []byte) {
 	return
 }
 
+//XXX This is not used
 type cbcBlockCipher struct {
 	cipher.BlockMode
 	iv []byte

@@ -45,6 +45,8 @@ func keysFromMasterSecret(params securityParameters) writeParams {
 
 	n := 2*params.macKeyLength + 2*params.encKeyLength + 2*params.fixedIVLength
 	keyMaterial := make([]byte, n)
+
+	// this changes depending on protocolVersion and cipher suite
 	prf(keyMaterial, params.masterSecret[:], keyExpansionLabel, seed)
 
 	w := writeParams{}

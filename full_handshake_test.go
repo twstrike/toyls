@@ -44,6 +44,10 @@ func (r *dummyRecordProtocol) writeRecord(c ContentType, b []byte) error {
 	return nil
 }
 
+func (r *dummyRecordProtocol) establishKeys([48]byte, [32]byte, [32]byte) {
+	//We dont care about security
+}
+
 func (s *ToySuite) TestFullHandshakeNew(c *C) {
 	var err error
 

@@ -36,8 +36,6 @@ type encryptionState struct {
 	mac         macAlgorithm
 	compression compressionMethod
 
-	recordIVLength uint8
-
 	sequenceNumber [8]byte //uint64
 }
 
@@ -75,16 +73,6 @@ func NewConn(entity connectionEnd) *Conn {
 		},
 		securityParams: securityParameters{
 			entity: entity,
-
-			//XXX I guess this should not be initialized to anything
-			//inCipher:             nullStreamCipher{},
-			//outCipher:            nullStreamCipher{},
-			//macAlgorithm:         nullMacAlgorithm{},
-			//compressionAlgorithm: nullCompressionMethod{},
-
-			//encKeyLength:  32,
-			//fixedIVLength: 16,
-			//macKeyLength:  32,
 		},
 		chunkSize: uint16(0x4000),
 	}
@@ -383,8 +371,6 @@ func (c *Conn) prepareServerCipherSpec(writeParameters writeParams) {
 		cipher:      readCipher,
 		mac:         mac,
 		compression: compression,
-
-		recordIVLength: uint8(readCipher.(cbcMode).BlockSize()),
 	}
 
 	c.pendingWrite = encryptionState{
@@ -392,8 +378,6 @@ func (c *Conn) prepareServerCipherSpec(writeParameters writeParams) {
 		cipher:      writeCipher,
 		mac:         mac,
 		compression: compression,
-
-		recordIVLength: uint8(writeCipher.(cbcMode).BlockSize()),
 	}
 }
 
@@ -419,8 +403,6 @@ func (c *Conn) prepareClientCipherSpec(writeParameters writeParams) {
 		cipher:      readCipher,
 		mac:         mac,
 		compression: compression,
-
-		recordIVLength: uint8(readCipher.(cbcMode).BlockSize()),
 	}
 
 	c.pendingWrite = encryptionState{
@@ -428,8 +410,6 @@ func (c *Conn) prepareClientCipherSpec(writeParameters writeParams) {
 		cipher:      writeCipher,
 		mac:         mac,
 		compression: compression,
-
-		recordIVLength: uint8(writeCipher.(cbcMode).BlockSize()),
 	}
 }
 

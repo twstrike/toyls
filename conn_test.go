@@ -3,7 +3,6 @@ package toyls
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	"fmt"
 	"io"
 
 	. "gopkg.in/check.v1"
@@ -61,8 +60,6 @@ func (s *ToySuite) TestConnHandleBlockCipherText(c *C) {
 
 	connA.securityParams.outCipher = cipher.NewCBCEncrypter(block, wp.clientIV)
 	connB.securityParams.inCipher = cipher.NewCBCDecrypter(block, wp.clientIV)
-	connA.securityParams.recordIVLength = uint8(connA.securityParams.outCipher.(cbcMode).BlockSize())
-	connB.securityParams.recordIVLength = uint8(connB.securityParams.inCipher.(cbcMode).BlockSize())
 
 	ciphered := GenericBlockCipher{
 		IV:      wp.clientIV,
@@ -80,7 +77,7 @@ func (s *ToySuite) TestConnHandleBlockCipherText(c *C) {
 	cipherText.fragment = make([]byte, len(ciphered.Marshal()))
 	copy(cipherText.fragment, ciphered.IV)
 
-	connA.securityParams.outCipher.(cbcMode).CryptBlocks(cipherText.fragment[connA.securityParams.recordIVLength:], ciphered.Marshal()[connA.securityParams.recordIVLength:])
+	connA.securityParams.outCipher.(cbcMode).CryptBlocks(cipherText.fragment[connA.securityParams.outCipher.(cbcMode).BlockSize():], ciphered.Marshal()[connA.securityParams.outCipher.(cbcMode).BlockSize():])
 	cipherText.length = uint16(len(cipherText.fragment))
 
 	compressed, err := connB.handleCipherText(cipherText)
@@ -135,9 +132,6 @@ func (s *ToySuite) TestConnBlockMacAndEncrypt(c *C) {
 	block, err := aes.NewCipher(wp.clientKey)
 	connA.securityParams.outCipher = cipher.NewCBCEncrypter(block, wp.clientIV)
 	connB.securityParams.inCipher = cipher.NewCBCDecrypter(block, wp.clientIV)
-	connA.securityParams.recordIVLength = uint8(connA.securityParams.outCipher.(cbcMode).BlockSize())
-	connB.securityParams.recordIVLength = uint8(connB.securityParams.inCipher.(cbcMode).BlockSize())
-	fmt.Println(connA.securityParams.recordIVLength)
 
 	compressed := TLSCompressed{
 		contentType: HANDSHAKE,

@@ -200,7 +200,7 @@ func (c *Conn) handleCipherText(cipherText TLSCiphertext) (TLSCompressed, error)
 	switch cc := c.securityParams.inCipher.(type) {
 	case cipher.Stream:
 		cc.XORKeyStream(cipherText.fragment, cipherText.fragment)
-		ciphered = GenericStreamCipher{}.UnMarshal(cipherText.fragment, c.securityParams)
+		ciphered = GenericStreamCipher{}.UnMarshal(cipherText.fragment, c.securityParams.macAlgorithm.Size())
 		break
 	case cbcMode:
 		blockSize := cc.BlockSize()
@@ -215,10 +215,10 @@ func (c *Conn) handleCipherText(cipherText TLSCiphertext) (TLSCompressed, error)
 		}
 		cc.CryptBlocks(remaining, remaining)
 		copy(cipherText.fragment[explicitIVLen:], remaining)
-		ciphered = GenericBlockCipher{}.UnMarshal(cipherText.fragment, c.securityParams)
+		ciphered = GenericBlockCipher{}.UnMarshal(cipherText.fragment, cc.BlockSize(), c.securityParams.macAlgorithm.Size())
 		break
 	case cipher.AEAD:
-		ciphered = GenericAEADCipher{}.UnMarshal(cipherText.fragment, c.securityParams)
+		ciphered = GenericAEADCipher{}.UnMarshal(cipherText.fragment, cc.NonceSize())
 		break
 	}
 	cipherText.length = uint16(len(ciphered.Content()))
@@ -271,7 +271,7 @@ func (c *Conn) macAndEncrypt(compressed TLSCompressed) (TLSCiphertext, error) {
 		cipherText.fragment = make([]byte, len(ciphered.Marshal()))
 		cipherText.length = uint16(len(cipherText.fragment))
 		copy(cipherText.fragment, ciphered.IV)
-		cc.CryptBlocks(cipherText.fragment[c.securityParams.recordIVLength:], ciphered.Marshal()[c.securityParams.recordIVLength:])
+		cc.CryptBlocks(cipherText.fragment[cc.BlockSize():], ciphered.Marshal()[cc.BlockSize():])
 
 		nextIV := make([]byte, cc.BlockSize())
 		rand.Read(nextIV)
@@ -331,8 +331,6 @@ func (c *Conn) prepareCipherSpec(writeParameters writeParams) {
 		panic(err)
 	}
 	c.nextSecurityParams.inCipher = cipher.NewCBCDecrypter(block, writeParameters.serverIV)
-
-	c.nextSecurityParams.recordIVLength = uint8(c.nextSecurityParams.outCipher.(cbcMode).BlockSize())
 
 	//XXX this is probably not used
 	c.wp = writeParameters

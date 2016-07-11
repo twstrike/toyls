@@ -27,7 +27,6 @@ type securityParameters struct {
 	encKeyLength         uint8
 	blockLength          uint8
 	fixedIVLength        uint8
-	recordIVLength       uint8
 	macAlgorithm         macAlgorithm
 	macKeyLength         uint8
 	compressionAlgorithm compressionMethod
@@ -174,7 +173,6 @@ func (t TLSCiphertext) header() (ret []byte) {
 
 type Ciphered interface {
 	Marshal() []byte
-	UnMarshal([]byte, securityParameters) Ciphered
 	Content() []byte
 	Mac() []byte
 }
@@ -197,9 +195,9 @@ func (c GenericStreamCipher) Marshal() []byte {
 	return ret
 }
 
-func (c GenericStreamCipher) UnMarshal(fragment []byte, params securityParameters) Ciphered {
-	c.content = fragment[:len(fragment)-int(params.macAlgorithm.Size())]
-	c.MAC = fragment[len(fragment)-int(params.macAlgorithm.Size()):]
+func (c GenericStreamCipher) UnMarshal(fragment []byte, macSize int) Ciphered {
+	c.content = fragment[:len(fragment)-macSize]
+	c.MAC = fragment[len(fragment)-macSize:]
 	return c
 }
 
@@ -229,12 +227,12 @@ func (c GenericBlockCipher) Marshal() []byte {
 	return ret
 }
 
-func (c GenericBlockCipher) UnMarshal(fragment []byte, params securityParameters) Ciphered {
-	c.IV = fragment[:params.recordIVLength]
+func (c GenericBlockCipher) UnMarshal(fragment []byte, ivLength, macSize int) Ciphered {
+	c.IV = fragment[:ivLength]
 	c.padding_length = fragment[len(fragment)-1]
 	c.padding = fragment[len(fragment)-1-int(c.padding_length) : len(fragment)-1]
-	c.MAC = fragment[len(fragment)-1-int(c.padding_length)-int(params.macAlgorithm.Size()) : len(fragment)-1-int(c.padding_length)]
-	c.content = fragment[params.recordIVLength : len(fragment)-1-int(c.padding_length)-int(params.macAlgorithm.Size())]
+	c.MAC = fragment[len(fragment)-1-int(c.padding_length)-macSize : len(fragment)-1-int(c.padding_length)]
+	c.content = fragment[ivLength : len(fragment)-1-int(c.padding_length)-macSize]
 	return c
 }
 
@@ -258,9 +256,9 @@ func (c GenericAEADCipher) Marshal() []byte {
 	return ret
 }
 
-func (c GenericAEADCipher) UnMarshal(fragment []byte, params securityParameters) Ciphered {
-	c.nonce_explicit = fragment[:params.recordIVLength]
-	c.content = fragment[params.recordIVLength:]
+func (c GenericAEADCipher) UnMarshal(fragment []byte, ivLength int) Ciphered {
+	c.nonce_explicit = fragment[:ivLength]
+	c.content = fragment[ivLength:]
 	return c
 }
 

@@ -40,6 +40,8 @@ type encryptionState struct {
 }
 
 type Conn struct {
+	entity connectionEnd
+
 	read, pendingRead   encryptionState
 	write, pendingWrite encryptionState
 
@@ -64,9 +66,7 @@ func newServer() *Conn {
 
 func NewConn(entity connectionEnd) *Conn {
 	conn := Conn{
-		securityParams: securityParameters{
-			entity: entity,
-		},
+		entity:    entity,
 		chunkSize: uint16(0x4000),
 	}
 
@@ -296,21 +296,30 @@ func (c *Conn) macAndEncrypt(compressed TLSCompressed) (TLSCiphertext, error) {
 	return cipherText, nil
 }
 
-func (c Conn) writeIV() (iv []byte) {
-	if c.securityParams.entity == CLIENT {
-		iv = c.wp.clientIV
-	} else if c.securityParams.entity == SERVER {
-		iv = c.wp.serverIV
+func (c Conn) writeIV() []byte {
+	switch c.entity {
+	case CLIENT:
+		return c.wp.clientIV
+	case SERVER:
+		return c.wp.serverIV
+	default:
+		panic("invalid entity")
 	}
-	return
+
+	return nil
 }
 
 func (c Conn) setWriteIV(iv []byte) {
-	if c.securityParams.entity == CLIENT {
+	//XXX is this correct? arent they generated from masterSecret, clientRandom and serverRandom?
+	switch c.entity {
+	case CLIENT:
 		c.wp.clientIV = iv
-	} else if c.securityParams.entity == SERVER {
+	case SERVER:
 		c.wp.serverIV = iv
+	default:
+		panic("invalid entity")
 	}
+
 	return
 }
 
@@ -332,7 +341,7 @@ func (c *Conn) compress(plainText TLSPlaintext) (TLSCompressed, error) {
 
 //XXX the input is not writeParameters because they are parameters for both reading and writing.
 func (c *Conn) prepareCipherSpec(writeParameters writeParams) {
-	switch c.securityParams.entity {
+	switch c.entity {
 	case SERVER:
 		c.prepareServerCipherSpec(writeParameters)
 	case CLIENT:
@@ -409,8 +418,6 @@ func (c *Conn) prepareClientCipherSpec(writeParameters writeParams) {
 func (c *Conn) establishKeys(masterSecret [48]byte, clientRandom, serverRandom [32]byte) {
 	//I dont think this is necessary
 	c.nextSecurityParams = securityParameters{
-		entity: c.securityParams.entity, //???
-
 		masterSecret: masterSecret,
 		clientRandom: clientRandom,
 		serverRandom: serverRandom,

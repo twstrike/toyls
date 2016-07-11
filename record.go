@@ -19,9 +19,6 @@ const (
 )
 
 type securityParameters struct {
-	//XXX this could go to conn directly
-	entity connectionEnd
-
 	//TODO extract from here
 	macKeyLength  uint8
 	encKeyLength  uint8

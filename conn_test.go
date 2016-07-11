@@ -76,8 +76,8 @@ func (s *ToySuite) TestConnHandleBlockCipherText(c *C) {
 
 	cipherText.fragment = make([]byte, len(ciphered.Marshal()))
 	copy(cipherText.fragment, ciphered.IV)
-
-	connA.securityParams.outCipher.(cbcMode).CryptBlocks(cipherText.fragment[connA.securityParams.outCipher.(cbcMode).BlockSize():], ciphered.Marshal()[connA.securityParams.outCipher.(cbcMode).BlockSize():])
+	cc := connA.securityParams.outCipher.(cbcMode)
+	cc.CryptBlocks(cipherText.fragment[cc.BlockSize():], ciphered.Marshal()[cc.BlockSize():])
 	cipherText.length = uint16(len(cipherText.fragment))
 
 	compressed, err := connB.handleCipherText(cipherText)

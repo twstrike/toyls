@@ -40,8 +40,6 @@ type encryptionState struct {
 }
 
 type Conn struct {
-	state connectionState
-
 	read, pendingRead   encryptionState
 	write, pendingWrite encryptionState
 

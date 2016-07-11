@@ -96,12 +96,6 @@ func (nullCompressionMethod) decompress(compressed []byte) ([]byte, uint16) {
 	return compressed, uint16(len(compressed))
 }
 
-type connectionState struct {
-	compressionState uint8
-	cipherState      uint8
-	macKey           []byte
-}
-
 type ContentType uint8
 
 var (

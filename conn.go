@@ -45,8 +45,7 @@ type Conn struct {
 
 	securityParams     securityParameters
 	nextSecurityParams securityParameters
-
-	wp writeParams
+	wp                 writeParams
 
 	handshaker
 	chunkSize uint16

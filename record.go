@@ -19,17 +19,10 @@ const (
 )
 
 type securityParameters struct {
-	entity              connectionEnd
-	prfAlgorithm        prfAlgorithm
-	bulkCipherAlgorithm bulkCipherAlgorithm
+	//XXX this could go to conn directly
+	entity connectionEnd
 
-	//inCipher             cipherType
-	//outCipher            cipherType
-	blockLength uint8
-
-	//macAlgorithm         macAlgorithm
-	//compressionAlgorithm compressionMethod
-
+	//TODO extract from here
 	macKeyLength  uint8
 	encKeyLength  uint8
 	fixedIVLength uint8

@@ -28,7 +28,7 @@ func DialWithDialer(dialer *net.Dialer, network, addr string) (*Conn, error) {
 }
 
 type encryptionState struct {
-	//version     protocolVersion
+	version     protocolVersion
 	cipher      cipherType
 	mac         macAlgorithm
 	compression compressionMethod
@@ -63,11 +63,13 @@ func NewConn(entity connectionEnd) *Conn {
 		entity:    entity,
 		chunkSize: uint16(0x4000),
 		write: encryptionState{
+			version:     VersionTLS12,
 			cipher:      nullStreamCipher{},
 			mac:         nullMacAlgorithm{},
 			compression: nullCompressionMethod{},
 		},
 		read: encryptionState{
+			version:     VersionTLS12,
 			cipher:      nullStreamCipher{},
 			mac:         nullMacAlgorithm{},
 			compression: nullCompressionMethod{},
@@ -94,18 +96,17 @@ func (c *Conn) SetChunkSize(chunkSize uint16) {
 	}
 }
 
-func (c Conn) Close() {
+func (c *Conn) Close() {
 	c.rawConn.Close()
 	return
 }
 
-func (c Conn) writeRecord(contentType ContentType, content []byte) error {
+func (c *Conn) writeRecord(contentType ContentType, content []byte) error {
 	var err error
-	payload := []byte{}
 	var plainText TLSPlaintext
 
 	for len(content) > 0 {
-		plainText, content, err = c.fragment(contentType, VersionTLS12, content)
+		plainText, content, err = c.fragment(contentType, c.write.version, content)
 		if err != nil {
 			return err
 		}
@@ -122,31 +123,35 @@ func (c Conn) writeRecord(contentType ContentType, content []byte) error {
 
 		seq := binary.BigEndian.Uint64(c.write.sequenceNumber[:]) //TODO: alert for renegotiation
 		binary.BigEndian.PutUint64(c.write.sequenceNumber[:], seq+1)
-		payload = append(payload, cipherText.serialize()...)
+
+		c.rawConn.Write(cipherText.serialize())
 	}
-	c.rawConn.Write(payload)
 
 	return nil
 }
 
-func (c Conn) readRecord(contentType ContentType) ([]byte, error) {
+func (c *Conn) readRecord(contentType ContentType) ([]byte, error) {
 	cipherText, err := c.handleFragment(c.rawConn)
 	if err != nil {
 		panic(err)
 	}
+
 	compressed, err := c.handleCipherText(cipherText)
 	if err != nil {
 		panic(err)
 	}
+
 	plainText, err := c.handleCompressed(compressed)
 	if err != nil {
 		panic(err)
 	}
+
 	seq := binary.BigEndian.Uint64(c.read.sequenceNumber[:]) //TODO: alert for renegotiation
 	binary.BigEndian.PutUint64(c.read.sequenceNumber[:], seq+1)
 	if plainText.contentType != contentType {
 		return plainText.fragment, fmt.Errorf("received unexpected message, %+v", plainText)
 	}
+
 	return plainText.fragment, nil
 }
 
@@ -206,9 +211,9 @@ func (c *Conn) handleCipherText(cipherText TLSCiphertext) (TLSCompressed, error)
 	switch cc := c.read.cipher.(type) {
 	default:
 		panic("unsupported")
-	//case cipher.Stream:
-	//	cc.XORKeyStream(cipherText.fragment, cipherText.fragment)
-	//	ciphered = GenericStreamCipher{}.UnMarshal(cipherText.fragment, c.securityParams)
+	case cipher.Stream:
+		cc.XORKeyStream(cipherText.fragment, cipherText.fragment)
+		ciphered = GenericStreamCipher{}.UnMarshal(cipherText.fragment, macAlgorithm.Size())
 	case cbcMode:
 		blockSize := cc.BlockSize()
 		explicitIVLen = blockSize
@@ -268,17 +273,14 @@ func (c *Conn) macAndEncrypt(compressed TLSCompressed) (TLSCiphertext, error) {
 	switch cc := c.write.cipher.(type) {
 	default:
 		panic("unsupported")
-	case nullStreamCipher:
-		//does nothing
-	//case cipher.Stream:
-	//	ciphered := GenericStreamCipher{
-	//		content: compressed.fragment, //TLSCompressed.length
-	//		MAC:     macAlgorithm.MAC(nil, c.state.writeSequenceNumber[0:], cipherText.header(), compressed.fragment),
-	//	}
-	//	cipherText.fragment = ciphered.Marshal()
-	//	cipherText.length = uint16(len(cipherText.fragment))
-	//	cc.XORKeyStream(cipherText.fragment, cipherText.fragment)
-	//	break
+	case cipher.Stream:
+		ciphered := GenericStreamCipher{
+			content: compressed.fragment, //TLSCompressed.length
+			MAC:     macAlgorithm.MAC(nil, c.write.sequenceNumber[0:], cipherText.header(), compressed.fragment),
+		}
+		cipherText.fragment = ciphered.Marshal()
+		cipherText.length = uint16(len(cipherText.fragment))
+		cc.XORKeyStream(cipherText.fragment, cipherText.fragment)
 	case cbcMode:
 		ciphered := GenericBlockCipher{
 			content: compressed.fragment,
@@ -303,7 +305,7 @@ func (c *Conn) macAndEncrypt(compressed TLSCompressed) (TLSCiphertext, error) {
 	return cipherText, nil
 }
 
-func (c Conn) writeIV() []byte {
+func (c *Conn) writeIV() []byte {
 	switch c.entity {
 	case CLIENT:
 		return c.wp.clientIV
@@ -316,7 +318,7 @@ func (c Conn) writeIV() []byte {
 	return nil
 }
 
-func (c Conn) setWriteIV(iv []byte) {
+func (c *Conn) setWriteIV(iv []byte) {
 	//XXX is this correct? arent they generated from masterSecret, clientRandom and serverRandom?
 	switch c.entity {
 	case CLIENT:
@@ -376,14 +378,14 @@ func (c *Conn) prepareServerCipherSpec(writeParameters keyingMaterial) {
 	writeCipher := cipher.NewCBCEncrypter(block, writeParameters.serverIV)
 
 	c.pendingRead = encryptionState{
-		//version:     VersionSSL30,
+		version:     VersionTLS12,
 		cipher:      readCipher,
 		mac:         mac,
 		compression: compression,
 	}
 
 	c.pendingWrite = encryptionState{
-		//version:     VersionSSL30,
+		version:     VersionTLS12,
 		cipher:      writeCipher,
 		mac:         mac,
 		compression: compression,
@@ -408,14 +410,14 @@ func (c *Conn) prepareClientCipherSpec(writeParameters keyingMaterial) {
 	readCipher := cipher.NewCBCDecrypter(block, writeParameters.serverIV)
 
 	c.pendingRead = encryptionState{
-		//version:     VersionSSL30,
+		version:     VersionTLS12,
 		cipher:      readCipher,
 		mac:         mac,
 		compression: compression,
 	}
 
 	c.pendingWrite = encryptionState{
-		//version:     VersionSSL30,
+		version:     VersionTLS12,
 		cipher:      writeCipher,
 		mac:         mac,
 		compression: compression,

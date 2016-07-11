@@ -3,6 +3,7 @@ package toyls
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"fmt"
 	"io"
 
 	. "gopkg.in/check.v1"
@@ -129,6 +130,8 @@ func (s *ToySuite) TestConnBlockMacAndEncrypt(c *C) {
 	connA := NewConn(CLIENT)
 	connB := NewConn(SERVER)
 	connA.securityParams.masterSecret = [48]byte{0x03, 0x03, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01}
+	connA.securityParams.fixedIVLength = 16
+	connB.securityParams.fixedIVLength = 16
 	wp := keysFromMasterSecret(connA.securityParams)
 	connA.wp = wp
 	block, err := aes.NewCipher(wp.clientKey)
@@ -136,6 +139,7 @@ func (s *ToySuite) TestConnBlockMacAndEncrypt(c *C) {
 	connB.securityParams.inCipher = cipher.NewCBCDecrypter(block, wp.clientIV)
 	connA.securityParams.recordIVLength = uint8(connA.securityParams.outCipher.(cbcMode).BlockSize())
 	connB.securityParams.recordIVLength = uint8(connB.securityParams.inCipher.(cbcMode).BlockSize())
+	fmt.Println(connA.securityParams.recordIVLength)
 
 	compressed := TLSCompressed{
 		contentType: HANDSHAKE,

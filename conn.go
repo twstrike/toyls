@@ -3,6 +3,7 @@ package toyls
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/binary"
@@ -265,12 +266,17 @@ func (c *Conn) macAndEncrypt(compressed TLSCompressed) (TLSCiphertext, error) {
 			content: compressed.fragment,
 			MAC:     c.securityParams.macAlgorithm.MAC(nil, c.state.writeSequenceNumber[0:], cipherText.header(), compressed.fragment),
 		}
-		ciphered.IV = c.cbcIV(true)
+		ciphered.IV = c.writeIV()
 		ciphered.padToBlockSize(cc.BlockSize())
 		cipherText.fragment = make([]byte, len(ciphered.Marshal()))
 		cipherText.length = uint16(len(cipherText.fragment))
 		copy(cipherText.fragment, ciphered.IV)
 		cc.CryptBlocks(cipherText.fragment[c.securityParams.recordIVLength:], ciphered.Marshal()[c.securityParams.recordIVLength:])
+
+		nextIV := make([]byte, cc.BlockSize())
+		rand.Read(nextIV)
+		cc.SetIV(nextIV)
+		c.setWriteIV(nextIV)
 		break
 	case cipher.AEAD:
 		return cipherText, errors.New("not Implemented")
@@ -278,19 +284,20 @@ func (c *Conn) macAndEncrypt(compressed TLSCompressed) (TLSCiphertext, error) {
 	return cipherText, nil
 }
 
-func (c Conn) cbcIV(sending bool) (iv []byte) {
+func (c Conn) writeIV() (iv []byte) {
 	if c.securityParams.entity == CLIENT {
-		if sending {
-			iv = c.wp.clientIV
-		} else {
-			iv = c.wp.serverIV
-		}
+		iv = c.wp.clientIV
 	} else if c.securityParams.entity == SERVER {
-		if sending {
-			iv = c.wp.serverIV
-		} else {
-			iv = c.wp.clientIV
-		}
+		iv = c.wp.serverIV
+	}
+	return
+}
+
+func (c Conn) setWriteIV(iv []byte) {
+	if c.securityParams.entity == CLIENT {
+		c.wp.clientIV = iv
+	} else if c.securityParams.entity == SERVER {
+		c.wp.serverIV = iv
 	}
 	return
 }

@@ -1,9 +1,6 @@
 package toyls
 
-import (
-	"crypto/cipher"
-	"hash"
-)
+import "hash"
 
 type recordProtocol interface {
 	readRecord(ContentType) ([]byte, error)
@@ -46,16 +43,6 @@ type nullStreamCipher struct{}
 
 func (nullStreamCipher) XORKeyStream(dst, src []byte) {
 	return
-}
-
-//XXX This is not used
-type cbcBlockCipher struct {
-	cipher.BlockMode
-	iv []byte
-}
-
-func (cbc cbcBlockCipher) SetIV(iv []byte) {
-	copy(cbc.iv, iv)
 }
 
 type bulkCipherAlgorithm interface{}

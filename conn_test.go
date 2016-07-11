@@ -130,8 +130,6 @@ func (s *ToySuite) TestConnBlockMacAndEncrypt(c *C) {
 	connA := NewConn(CLIENT)
 	connB := NewConn(SERVER)
 	connA.securityParams.masterSecret = [48]byte{0x03, 0x03, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01}
-	connA.securityParams.fixedIVLength = 16
-	connB.securityParams.fixedIVLength = 16
 	wp := keysFromMasterSecret(connA.securityParams)
 	connA.wp = wp
 	block, err := aes.NewCipher(wp.clientKey)

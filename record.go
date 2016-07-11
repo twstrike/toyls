@@ -102,8 +102,6 @@ type connectionState struct {
 	macKey           []byte
 
 	//XXX REMOVE ME
-	//This is different for READ and WRITE
-	readSequenceNumber  [8]byte //uint64
 	writeSequenceNumber [8]byte //uint64
 }
 

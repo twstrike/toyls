@@ -68,7 +68,6 @@ func newServer() *Conn {
 func NewConn(entity connectionEnd) *Conn {
 	conn := Conn{
 		state: connectionState{
-			readSequenceNumber:  [8]byte{},
 			writeSequenceNumber: [8]byte{},
 		},
 		securityParams: securityParameters{
@@ -145,8 +144,8 @@ func (c Conn) readRecord(contentType ContentType) ([]byte, error) {
 	if err != nil {
 		panic(err)
 	}
-	seq := binary.BigEndian.Uint64(c.state.readSequenceNumber[:]) //TODO: alert for renegotiation
-	binary.BigEndian.PutUint64(c.state.readSequenceNumber[:], seq+1)
+	seq := binary.BigEndian.Uint64(c.read.sequenceNumber[:]) //TODO: alert for renegotiation
+	binary.BigEndian.PutUint64(c.read.sequenceNumber[:], seq+1)
 	if plainText.contentType != contentType {
 		return plainText.fragment, fmt.Errorf("received unexpected message, %+v", plainText)
 	}
@@ -236,7 +235,7 @@ func (c *Conn) handleCipherText(cipherText TLSCiphertext) (TLSCompressed, error)
 	}
 
 	cipherText.length = uint16(len(ciphered.Content()))
-	localMAC := macAlgorithm.MAC(nil, c.state.readSequenceNumber[0:], cipherText.header(), ciphered.Content())
+	localMAC := macAlgorithm.MAC(nil, c.read.sequenceNumber[0:], cipherText.header(), ciphered.Content())
 	remoteMAC := ciphered.Mac()
 	if subtle.ConstantTimeCompare(localMAC, remoteMAC) != 1 {
 		return compressed, errors.New("alertBadRecordMAC")

@@ -108,7 +108,7 @@ var (
 	VersionTLS12 = protocolVersion{0x03, 0x03}
 )
 
-type writeParams struct {
+type keyingMaterial struct {
 	clientMAC,
 	serverMAC,
 	clientKey,

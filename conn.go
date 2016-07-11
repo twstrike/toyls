@@ -44,7 +44,7 @@ type Conn struct {
 
 	read, pendingRead   encryptionState
 	write, pendingWrite encryptionState
-	wp                  writeParams
+	wp                  keyingMaterial
 
 	handshaker
 	chunkSize uint16
@@ -337,7 +337,7 @@ func (c *Conn) compress(plainText TLSPlaintext) (TLSCompressed, error) {
 }
 
 //XXX the input is not writeParameters because they are parameters for both reading and writing.
-func (c *Conn) prepareCipherSpec(writeParameters writeParams) {
+func (c *Conn) prepareCipherSpec(writeParameters keyingMaterial) {
 	switch c.entity {
 	case SERVER:
 		c.prepareServerCipherSpec(writeParameters)
@@ -348,7 +348,7 @@ func (c *Conn) prepareCipherSpec(writeParameters writeParams) {
 	}
 }
 
-func (c *Conn) prepareServerCipherSpec(writeParameters writeParams) {
+func (c *Conn) prepareServerCipherSpec(writeParameters keyingMaterial) {
 	//XXX This is all fixed to use TLS_RSA_WITH_AES_128_CBC_SHA256
 	mac := hmacAlgorithm{sha256.New()}
 	compression := nullCompressionMethod{}
@@ -380,7 +380,7 @@ func (c *Conn) prepareServerCipherSpec(writeParameters writeParams) {
 	}
 }
 
-func (c *Conn) prepareClientCipherSpec(writeParameters writeParams) {
+func (c *Conn) prepareClientCipherSpec(writeParameters keyingMaterial) {
 	//XXX This is all fixed to use TLS_RSA_WITH_AES_128_CBC_SHA256
 	mac := hmacAlgorithm{sha256.New()}
 	compression := nullCompressionMethod{}

@@ -44,10 +44,7 @@ type Conn struct {
 
 	read, pendingRead   encryptionState
 	write, pendingWrite encryptionState
-
-	securityParams     securityParameters
-	nextSecurityParams securityParameters
-	wp                 writeParams
+	wp                  writeParams
 
 	handshaker
 	chunkSize uint16
@@ -416,8 +413,7 @@ func (c *Conn) prepareClientCipherSpec(writeParameters writeParams) {
 }
 
 func (c *Conn) establishKeys(masterSecret [48]byte, clientRandom, serverRandom [32]byte) {
-	//I dont think this is necessary
-	c.nextSecurityParams = securityParameters{
+	params := securityParameters{
 		masterSecret: masterSecret,
 		clientRandom: clientRandom,
 		serverRandom: serverRandom,
@@ -428,7 +424,7 @@ func (c *Conn) establishKeys(masterSecret [48]byte, clientRandom, serverRandom [
 		macKeyLength:  32,
 	}
 
-	keys := keysFromMasterSecret(c.nextSecurityParams)
+	keys := keysFromMasterSecret(params)
 	c.prepareCipherSpec(keys)
 }
 

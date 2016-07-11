@@ -86,7 +86,7 @@ func (s *ToySuite) TestConnHandleStreamCipherText(c *C) {
 		version:     VersionTLS12,
 		length:      uint16(len(ciphered.content)),
 	}
-	ciphered.MAC = conn.read.mac.MAC(nil, conn.state.writeSequenceNumber[0:], cipherText.header(), ciphered.content)
+	ciphered.MAC = conn.read.mac.MAC(nil, conn.write.sequenceNumber[0:], cipherText.header(), ciphered.content)
 
 	cipherText.fragment = ciphered.Marshal()
 	cipherText.length = uint16(len(cipherText.fragment))

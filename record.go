@@ -100,9 +100,6 @@ type connectionState struct {
 	compressionState uint8
 	cipherState      uint8
 	macKey           []byte
-
-	//XXX REMOVE ME
-	writeSequenceNumber [8]byte //uint64
 }
 
 type ContentType uint8

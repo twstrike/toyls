@@ -67,9 +67,6 @@ func newServer() *Conn {
 
 func NewConn(entity connectionEnd) *Conn {
 	conn := Conn{
-		state: connectionState{
-			writeSequenceNumber: [8]byte{},
-		},
 		securityParams: securityParameters{
 			entity: entity,
 		},
@@ -122,8 +119,8 @@ func (c Conn) writeRecord(contentType ContentType, content []byte) error {
 			return err
 		}
 
-		seq := binary.BigEndian.Uint64(c.state.writeSequenceNumber[:]) //TODO: alert for renegotiation
-		binary.BigEndian.PutUint64(c.state.writeSequenceNumber[:], seq+1)
+		seq := binary.BigEndian.Uint64(c.write.sequenceNumber[:]) //TODO: alert for renegotiation
+		binary.BigEndian.PutUint64(c.write.sequenceNumber[:], seq+1)
 		payload = append(payload, cipherText.serialize()...)
 	}
 	c.rawConn.Write(payload)
@@ -282,7 +279,7 @@ func (c *Conn) macAndEncrypt(compressed TLSCompressed) (TLSCiphertext, error) {
 	case cbcMode:
 		ciphered := GenericBlockCipher{
 			content: compressed.fragment,
-			MAC:     macAlgorithm.MAC(nil, c.state.writeSequenceNumber[0:], cipherText.header(), compressed.fragment),
+			MAC:     macAlgorithm.MAC(nil, c.write.sequenceNumber[0:], cipherText.header(), compressed.fragment),
 		}
 		ciphered.IV = c.writeIV()
 		ciphered.padToBlockSize(cc.BlockSize())

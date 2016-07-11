@@ -28,10 +28,7 @@ func DialWithDialer(dialer *net.Dialer, network, addr string) (*Conn, error) {
 }
 
 type encryptionState struct {
-	// not sure if all of it is necessary, but I'm not gonna use in or out cipher
-	securityParameters
-
-	version     protocolVersion
+	//version     protocolVersion
 	cipher      cipherType
 	mac         macAlgorithm
 	compression compressionMethod
@@ -65,6 +62,16 @@ func NewConn(entity connectionEnd) *Conn {
 	conn := Conn{
 		entity:    entity,
 		chunkSize: uint16(0x4000),
+		write: encryptionState{
+			cipher:      nullStreamCipher{},
+			mac:         nullMacAlgorithm{},
+			compression: nullCompressionMethod{},
+		},
+		read: encryptionState{
+			cipher:      nullStreamCipher{},
+			mac:         nullMacAlgorithm{},
+			compression: nullCompressionMethod{},
+		},
 	}
 
 	switch entity {
@@ -261,6 +268,8 @@ func (c *Conn) macAndEncrypt(compressed TLSCompressed) (TLSCiphertext, error) {
 	switch cc := c.write.cipher.(type) {
 	default:
 		panic("unsupported")
+	case nullStreamCipher:
+		//does nothing
 	//case cipher.Stream:
 	//	ciphered := GenericStreamCipher{
 	//		content: compressed.fragment, //TLSCompressed.length
@@ -290,6 +299,7 @@ func (c *Conn) macAndEncrypt(compressed TLSCompressed) (TLSCiphertext, error) {
 		//case cipher.AEAD:
 		//	return cipherText, errors.New("not Implemented")
 	}
+
 	return cipherText, nil
 }
 
@@ -366,14 +376,14 @@ func (c *Conn) prepareServerCipherSpec(writeParameters keyingMaterial) {
 	writeCipher := cipher.NewCBCEncrypter(block, writeParameters.serverIV)
 
 	c.pendingRead = encryptionState{
-		version:     VersionSSL30,
+		//version:     VersionSSL30,
 		cipher:      readCipher,
 		mac:         mac,
 		compression: compression,
 	}
 
 	c.pendingWrite = encryptionState{
-		version:     VersionSSL30,
+		//version:     VersionSSL30,
 		cipher:      writeCipher,
 		mac:         mac,
 		compression: compression,
@@ -398,14 +408,14 @@ func (c *Conn) prepareClientCipherSpec(writeParameters keyingMaterial) {
 	readCipher := cipher.NewCBCDecrypter(block, writeParameters.serverIV)
 
 	c.pendingRead = encryptionState{
-		version:     VersionSSL30,
+		//version:     VersionSSL30,
 		cipher:      readCipher,
 		mac:         mac,
 		compression: compression,
 	}
 
 	c.pendingWrite = encryptionState{
-		version:     VersionSSL30,
+		//version:     VersionSSL30,
 		cipher:      writeCipher,
 		mac:         mac,
 		compression: compression,

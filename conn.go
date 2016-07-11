@@ -27,8 +27,25 @@ func DialWithDialer(dialer *net.Dialer, network, addr string) (*Conn, error) {
 	return conn, err
 }
 
+type encryptionState struct {
+	// not sure if all of it is necessary, but I'm not gonna use in or out cipher
+	securityParameters
+
+	version     protocolVersion
+	cipher      cipherType
+	mac         macAlgorithm
+	compression compressionMethod
+
+	recordIVLength uint8
+
+	sequenceNumber [8]byte //uint64
+}
+
 type Conn struct {
 	state connectionState
+
+	read, pendingRead   encryptionState
+	write, pendingWrite encryptionState
 
 	securityParams     securityParameters
 	nextSecurityParams securityParameters
@@ -60,13 +77,14 @@ func NewConn(entity connectionEnd) *Conn {
 			entity: entity,
 
 			//XXX I guess this should not be initialized to anything
-			inCipher:             nullStreamCipher{},
-			outCipher:            nullStreamCipher{},
-			macAlgorithm:         nullMacAlgorithm{},
-			compressionAlgorithm: nullCompressionMethod{},
-			encKeyLength:         32,
-			fixedIVLength:        16,
-			macKeyLength:         32,
+			//inCipher:             nullStreamCipher{},
+			//outCipher:            nullStreamCipher{},
+			//macAlgorithm:         nullMacAlgorithm{},
+			//compressionAlgorithm: nullCompressionMethod{},
+
+			//encKeyLength:  32,
+			//fixedIVLength: 16,
+			//macKeyLength:  32,
 		},
 		chunkSize: uint16(0x4000),
 	}
@@ -197,17 +215,24 @@ func (c *Conn) handleCipherText(cipherText TLSCiphertext) (TLSCompressed, error)
 	compressed.version = cipherText.version
 	var ciphered Ciphered
 	explicitIVLen := 0
-	switch cc := c.securityParams.inCipher.(type) {
-	case cipher.Stream:
-		cc.XORKeyStream(cipherText.fragment, cipherText.fragment)
-		ciphered = GenericStreamCipher{}.UnMarshal(cipherText.fragment, c.securityParams.macAlgorithm.Size())
-		break
+
+	macAlgorithm := c.read.mac
+
+	switch cc := c.read.cipher.(type) {
+	default:
+		panic("unsupported")
+	//case cipher.Stream:
+	//	cc.XORKeyStream(cipherText.fragment, cipherText.fragment)
+	//	ciphered = GenericStreamCipher{}.UnMarshal(cipherText.fragment, c.securityParams)
 	case cbcMode:
 		blockSize := cc.BlockSize()
 		explicitIVLen = blockSize
-		if len(cipherText.fragment)%blockSize != 0 || len(cipherText.fragment) < roundUp(explicitIVLen+c.securityParams.macAlgorithm.Size()+1, blockSize) {
+
+		if len(cipherText.fragment)%blockSize != 0 ||
+			len(cipherText.fragment) < roundUp(explicitIVLen+macAlgorithm.Size()+1, blockSize) {
 			return compressed, errors.New("alertBadRecordMAC")
 		}
+
 		remaining := cipherText.fragment
 		if explicitIVLen > 0 {
 			cc.SetIV(cipherText.fragment[:explicitIVLen])
@@ -215,18 +240,20 @@ func (c *Conn) handleCipherText(cipherText TLSCiphertext) (TLSCompressed, error)
 		}
 		cc.CryptBlocks(remaining, remaining)
 		copy(cipherText.fragment[explicitIVLen:], remaining)
-		ciphered = GenericBlockCipher{}.UnMarshal(cipherText.fragment, cc.BlockSize(), c.securityParams.macAlgorithm.Size())
-		break
-	case cipher.AEAD:
-		ciphered = GenericAEADCipher{}.UnMarshal(cipherText.fragment, cc.NonceSize())
-		break
+		ciphered = GenericBlockCipher{}.UnMarshal(cipherText.fragment, cc.BlockSize(), macAlgorithm.Size())
+
+		//case cipher.AEAD:
+		//	ciphered = GenericAEADCipher{}.UnMarshal(cipherText.fragment, c.securityParams)
+		//	break
 	}
+
 	cipherText.length = uint16(len(ciphered.Content()))
-	localMAC := c.securityParams.macAlgorithm.MAC(nil, c.state.readSequenceNumber[0:], cipherText.header(), ciphered.Content())
+	localMAC := macAlgorithm.MAC(nil, c.state.readSequenceNumber[0:], cipherText.header(), ciphered.Content())
 	remoteMAC := ciphered.Mac()
 	if subtle.ConstantTimeCompare(localMAC, remoteMAC) != 1 {
 		return compressed, errors.New("alertBadRecordMAC")
 	}
+
 	compressed.fragment = ciphered.Content()
 	compressed.length = uint16(len(compressed.fragment))
 	return compressed, nil
@@ -251,23 +278,28 @@ func (c *Conn) macAndEncrypt(compressed TLSCompressed) (TLSCiphertext, error) {
 		length:      uint16(len(compressed.fragment)),
 	}
 
-	switch cc := c.securityParams.outCipher.(type) {
-	case cipher.Stream:
-		ciphered := GenericStreamCipher{
-			content: compressed.fragment, //TLSCompressed.length
-			MAC:     c.securityParams.macAlgorithm.MAC(nil, c.state.writeSequenceNumber[0:], cipherText.header(), compressed.fragment),
-		}
-		cipherText.fragment = ciphered.Marshal()
-		cipherText.length = uint16(len(cipherText.fragment))
-		c.securityParams.outCipher.(cipher.Stream).XORKeyStream(cipherText.fragment, cipherText.fragment)
-		break
+	macAlgorithm := c.write.mac
+
+	switch cc := c.write.cipher.(type) {
+	default:
+		panic("unsupported")
+	//case cipher.Stream:
+	//	ciphered := GenericStreamCipher{
+	//		content: compressed.fragment, //TLSCompressed.length
+	//		MAC:     macAlgorithm.MAC(nil, c.state.writeSequenceNumber[0:], cipherText.header(), compressed.fragment),
+	//	}
+	//	cipherText.fragment = ciphered.Marshal()
+	//	cipherText.length = uint16(len(cipherText.fragment))
+	//	cc.XORKeyStream(cipherText.fragment, cipherText.fragment)
+	//	break
 	case cbcMode:
 		ciphered := GenericBlockCipher{
 			content: compressed.fragment,
-			MAC:     c.securityParams.macAlgorithm.MAC(nil, c.state.writeSequenceNumber[0:], cipherText.header(), compressed.fragment),
+			MAC:     macAlgorithm.MAC(nil, c.state.writeSequenceNumber[0:], cipherText.header(), compressed.fragment),
 		}
 		ciphered.IV = c.writeIV()
 		ciphered.padToBlockSize(cc.BlockSize())
+
 		cipherText.fragment = make([]byte, len(ciphered.Marshal()))
 		cipherText.length = uint16(len(cipherText.fragment))
 		copy(cipherText.fragment, ciphered.IV)
@@ -277,9 +309,8 @@ func (c *Conn) macAndEncrypt(compressed TLSCompressed) (TLSCiphertext, error) {
 		rand.Read(nextIV)
 		cc.SetIV(nextIV)
 		c.setWriteIV(nextIV)
-		break
-	case cipher.AEAD:
-		return cipherText, errors.New("not Implemented")
+		//case cipher.AEAD:
+		//	return cipherText, errors.New("not Implemented")
 	}
 	return cipherText, nil
 }
@@ -306,7 +337,7 @@ func (c *Conn) handleCompressed(compressed TLSCompressed) (TLSPlaintext, error) 
 	plainText := TLSPlaintext{}
 	plainText.contentType = compressed.contentType
 	plainText.version = compressed.version
-	plainText.fragment, plainText.length = c.securityParams.compressionAlgorithm.decompress(compressed.fragment)
+	plainText.fragment, plainText.length = c.read.compression.decompress(compressed.fragment)
 	return plainText, nil
 }
 
@@ -314,29 +345,96 @@ func (c *Conn) compress(plainText TLSPlaintext) (TLSCompressed, error) {
 	compressed := TLSCompressed{}
 	compressed.contentType = plainText.contentType
 	compressed.version = plainText.version
-	compressed.fragment, compressed.length = c.securityParams.compressionAlgorithm.compress(plainText.fragment)
+	compressed.fragment, compressed.length = c.write.compression.compress(plainText.fragment)
 	return compressed, nil
 }
 
+//XXX the input is not writeParameters because they are parameters for both reading and writing.
 func (c *Conn) prepareCipherSpec(writeParameters writeParams) {
-	//"in" uses the server (their), "out" uses the client (our)
+	switch c.securityParams.entity {
+	case SERVER:
+		c.prepareServerCipherSpec(writeParameters)
+	case CLIENT:
+		c.prepareClientCipherSpec(writeParameters)
+	default:
+		panic("unexpected entity value")
+	}
+}
+
+func (c *Conn) prepareServerCipherSpec(writeParameters writeParams) {
+	//XXX This is all fixed to use TLS_RSA_WITH_AES_128_CBC_SHA256
+	mac := hmacAlgorithm{sha256.New()}
+	compression := nullCompressionMethod{}
+
 	block, err := aes.NewCipher(writeParameters.clientKey)
 	if err != nil {
 		panic(err)
 	}
-	c.nextSecurityParams.outCipher = cipher.NewCBCEncrypter(block, writeParameters.clientIV)
+	readCipher := cipher.NewCBCDecrypter(block, writeParameters.clientIV)
 
 	block, err = aes.NewCipher(writeParameters.serverKey)
 	if err != nil {
 		panic(err)
 	}
-	c.nextSecurityParams.inCipher = cipher.NewCBCDecrypter(block, writeParameters.serverIV)
+	writeCipher := cipher.NewCBCEncrypter(block, writeParameters.serverIV)
 
-	//XXX this is probably not used
-	c.wp = writeParameters
+	c.pendingRead = encryptionState{
+		version:     VersionSSL30,
+		cipher:      readCipher,
+		mac:         mac,
+		compression: compression,
+
+		recordIVLength: uint8(readCipher.(cbcMode).BlockSize()),
+	}
+
+	c.pendingWrite = encryptionState{
+		version:     VersionSSL30,
+		cipher:      writeCipher,
+		mac:         mac,
+		compression: compression,
+
+		recordIVLength: uint8(writeCipher.(cbcMode).BlockSize()),
+	}
+}
+
+func (c *Conn) prepareClientCipherSpec(writeParameters writeParams) {
+	//XXX This is all fixed to use TLS_RSA_WITH_AES_128_CBC_SHA256
+	mac := hmacAlgorithm{sha256.New()}
+	compression := nullCompressionMethod{}
+
+	block, err := aes.NewCipher(writeParameters.clientKey)
+	if err != nil {
+		panic(err)
+	}
+	writeCipher := cipher.NewCBCEncrypter(block, writeParameters.clientIV)
+
+	block, err = aes.NewCipher(writeParameters.serverKey)
+	if err != nil {
+		panic(err)
+	}
+	readCipher := cipher.NewCBCDecrypter(block, writeParameters.serverIV)
+
+	c.pendingRead = encryptionState{
+		version:     VersionSSL30,
+		cipher:      readCipher,
+		mac:         mac,
+		compression: compression,
+
+		recordIVLength: uint8(readCipher.(cbcMode).BlockSize()),
+	}
+
+	c.pendingWrite = encryptionState{
+		version:     VersionSSL30,
+		cipher:      writeCipher,
+		mac:         mac,
+		compression: compression,
+
+		recordIVLength: uint8(writeCipher.(cbcMode).BlockSize()),
+	}
 }
 
 func (c *Conn) establishKeys(masterSecret [48]byte, clientRandom, serverRandom [32]byte) {
+	//I dont think this is necessary
 	c.nextSecurityParams = securityParameters{
 		entity: c.securityParams.entity, //???
 
@@ -345,25 +443,23 @@ func (c *Conn) establishKeys(masterSecret [48]byte, clientRandom, serverRandom [
 		serverRandom: serverRandom,
 
 		//XXX This is all fixed to use TLS_RSA_WITH_AES_128_CBC_SHA256
-		// This should create the correct securityParameters depending on the cipher suite
-		macAlgorithm:         hmacAlgorithm{sha256.New()},
-		compressionAlgorithm: nullCompressionMethod{},
-		encKeyLength:         32,
-		fixedIVLength:        16,
-		macKeyLength:         32,
+		encKeyLength:  32,
+		fixedIVLength: 16,
+		macKeyLength:  32,
 	}
 
-	c.prepareCipherSpec(keysFromMasterSecret(c.nextSecurityParams))
+	keys := keysFromMasterSecret(c.nextSecurityParams)
+	c.prepareCipherSpec(keys)
 }
 
 func (c *Conn) changeWriteCipherSpec() {
-	//XXX this should change only the write cipher
-	c.securityParams = c.nextSecurityParams
+	//TODO: wipe pending
+	c.write = c.pendingWrite
 }
 
 func (c *Conn) changeReadCipherSpec() {
-	//XXX this should change only the read cipher
-	c.securityParams = c.nextSecurityParams
+	//TODO: wipe pending
+	c.read = c.pendingRead
 }
 
 func readFromUntil(in io.Reader, i int) ([]byte, error) {

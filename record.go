@@ -19,20 +19,24 @@ const (
 )
 
 type securityParameters struct {
-	entity               connectionEnd
-	prfAlgorithm         prfAlgorithm
-	bulkCipherAlgorithm  bulkCipherAlgorithm
-	inCipher             cipherType
-	outCipher            cipherType
-	encKeyLength         uint8
-	blockLength          uint8
-	fixedIVLength        uint8
-	macAlgorithm         macAlgorithm
-	macKeyLength         uint8
-	compressionAlgorithm compressionMethod
-	masterSecret         [48]byte
-	clientRandom         [32]byte
-	serverRandom         [32]byte
+	entity              connectionEnd
+	prfAlgorithm        prfAlgorithm
+	bulkCipherAlgorithm bulkCipherAlgorithm
+
+	//inCipher             cipherType
+	//outCipher            cipherType
+	blockLength uint8
+
+	//macAlgorithm         macAlgorithm
+	//compressionAlgorithm compressionMethod
+
+	macKeyLength  uint8
+	encKeyLength  uint8
+	fixedIVLength uint8
+
+	masterSecret [48]byte
+	clientRandom [32]byte
+	serverRandom [32]byte
 }
 
 type prfAlgorithm interface{}
@@ -93,9 +97,12 @@ func (nullCompressionMethod) decompress(compressed []byte) ([]byte, uint16) {
 }
 
 type connectionState struct {
-	compressionState    uint8
-	cipherState         uint8
-	macKey              []byte
+	compressionState uint8
+	cipherState      uint8
+	macKey           []byte
+
+	//XXX REMOVE ME
+	//This is different for READ and WRITE
 	readSequenceNumber  [8]byte //uint64
 	writeSequenceNumber [8]byte //uint64
 }

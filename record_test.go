@@ -21,7 +21,6 @@ func (s *ToySuite) TestGenericStreamCipherMarshalAndUnMarshal(c *C) {
 }
 
 func (s *ToySuite) TestGenericBlockCipherMarshalAndUnMarshal(c *C) {
-
 	ciphered := GenericBlockCipher{
 		IV:             make([]byte, 16),   //SecurityParameters.record_iv_length
 		content:        []byte{0x02},       //TLSCompressed.length

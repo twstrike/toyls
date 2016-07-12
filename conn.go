@@ -3,8 +3,9 @@ package toyls
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/hmac"
 	"crypto/rand"
-	"crypto/sha256"
+	"crypto/sha1"
 	"crypto/subtle"
 	"encoding/binary"
 	"errors"
@@ -361,9 +362,10 @@ func (c *Conn) prepareCipherSpec(writeParameters keyingMaterial) {
 }
 
 func (c *Conn) prepareServerCipherSpec(writeParameters keyingMaterial) {
-	//XXX This is all fixed to use TLS_RSA_WITH_AES_128_CBC_SHA256
-	mac := hmacAlgorithm{sha256.New()}
+	//XXX This is all fixed to use TLS_RSA_WITH_AES_128_CBC_SHA
 	compression := nullCompressionMethod{}
+	readMac := hmacAlgorithm{hmac.New(sha1.New, writeParameters.clientMAC)}
+	writeMac := hmacAlgorithm{hmac.New(sha1.New, writeParameters.serverMAC)}
 
 	block, err := aes.NewCipher(writeParameters.clientKey)
 	if err != nil {
@@ -380,22 +382,23 @@ func (c *Conn) prepareServerCipherSpec(writeParameters keyingMaterial) {
 	c.pendingRead = encryptionState{
 		version:     VersionTLS12,
 		cipher:      readCipher,
-		mac:         mac,
+		mac:         readMac,
 		compression: compression,
 	}
 
 	c.pendingWrite = encryptionState{
 		version:     VersionTLS12,
 		cipher:      writeCipher,
-		mac:         mac,
+		mac:         writeMac,
 		compression: compression,
 	}
 }
 
 func (c *Conn) prepareClientCipherSpec(writeParameters keyingMaterial) {
-	//XXX This is all fixed to use TLS_RSA_WITH_AES_128_CBC_SHA256
-	mac := hmacAlgorithm{sha256.New()}
+	//XXX This is all fixed to use TLS_RSA_WITH_AES_128_CBC_SHA
 	compression := nullCompressionMethod{}
+	readMac := hmacAlgorithm{hmac.New(sha1.New, writeParameters.serverMAC)}
+	writeMac := hmacAlgorithm{hmac.New(sha1.New, writeParameters.clientMAC)}
 
 	block, err := aes.NewCipher(writeParameters.clientKey)
 	if err != nil {
@@ -412,14 +415,14 @@ func (c *Conn) prepareClientCipherSpec(writeParameters keyingMaterial) {
 	c.pendingRead = encryptionState{
 		version:     VersionTLS12,
 		cipher:      readCipher,
-		mac:         mac,
+		mac:         readMac,
 		compression: compression,
 	}
 
 	c.pendingWrite = encryptionState{
 		version:     VersionTLS12,
 		cipher:      writeCipher,
-		mac:         mac,
+		mac:         writeMac,
 		compression: compression,
 	}
 }
@@ -430,7 +433,7 @@ func (c *Conn) establishKeys(masterSecret [48]byte, clientRandom, serverRandom [
 		clientRandom: clientRandom,
 		serverRandom: serverRandom,
 
-		//XXX This is all fixed to use TLS_RSA_WITH_AES_128_CBC_SHA256
+		//XXX This is all fixed to use TLS_RSA_WITH_AES_128_CBC_SHA
 		encKeyLength:  16,
 		fixedIVLength: 16,
 		macKeyLength:  20,

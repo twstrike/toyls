@@ -22,8 +22,6 @@ func (s *LiveToySuite) SetUpSuite(c *C) {
 }
 
 func (s *LiveToySuite) TestClientHandshake(c *C) {
-	c.Skip("not now")
-
 	conn, err := Dial("tcp", "mail.google.com:443")
 	if err != nil {
 		panic("failed to connect: " + err.Error())

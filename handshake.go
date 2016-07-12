@@ -85,10 +85,6 @@ type serverKeyExchangeBody struct{}
 //XXX We believe this is not mandatory for TLS_RSA_WITH_AES_128_CBC_SHA
 type certificateRequestBody struct{}
 
-//This is empty. No need to serialize/deserialize.
-//XXX Remove-me
-type serverHelloDoneBody struct{}
-
 //XXX Not necessary until our server sends certificateRequest
 type certificateVerifyBody struct{}
 

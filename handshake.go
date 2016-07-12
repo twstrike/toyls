@@ -141,7 +141,6 @@ func deserializeHandshakeMessage(m []byte) *handshakeMessage {
 }
 
 func sendCertificate(cert tls.Certificate) []byte {
-	//XXX I think this is wrong. It should be a list of certificateChains, maybe.
 	body := &certificateBody{
 		//XXX Should we deep-copy?
 		certificateList: cert.Certificate,

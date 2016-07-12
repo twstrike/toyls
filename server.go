@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
+	"math"
 	"errors"
 	"fmt"
 )
@@ -232,7 +233,9 @@ func deserializeCertificate(c []byte) (*certificateBody, error) {
 func serializeCertificate(c *certificateBody) ([]byte, error) {
 	certListBody := make([]byte, 0, 0xffffff) // 2^24-1 is maximim length
 	for _, ci := range c.certificateList {
-		//XXX check len(ci). It should be less than 0xFFFFFF
+		if uint16(len(ci)) > uint16(math.Pow(2, 24) - 1) {
+			return nil, errors.New("A certificate in the list has exceeded the size limiet of 2^24-1")
+		}
 		certificateLen := writeBytesFromUint24(uint32(len(ci)))
 		certListBody = append(certListBody, certificateLen[:]...)
 		certListBody = append(certListBody, ci...)

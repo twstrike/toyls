@@ -160,7 +160,7 @@ func (s *handshakeServer) receiveFinished(m []byte) error {
 func (s *handshakeServer) sendFinished() ([]byte, error) {
 	//XXX This is exactly the same as the client. Should it be?
 	//TODO: Store preMasterSecret, clientRandom, serverRandom
-	verifyData, err := generateVerifyData(s.masterSecret[:], clientFinished, &s.Buffer)
+	verifyData, err := generateVerifyData(s.masterSecret[:], serverFinished, &s.Buffer)
 	if err != nil {
 		return nil, err
 	}

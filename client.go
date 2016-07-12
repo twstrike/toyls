@@ -11,6 +11,7 @@ import (
 
 const (
 	clientFinished = "client finished"
+	serverFinished = "server finished"
 )
 
 type handshakeClient struct {

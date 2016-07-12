@@ -132,9 +132,8 @@ func (s *ToySuite) TestSendServerCertificate(c *C) {
 
 	server := newHandshakeServer()
 	server.Certificate = cert
-	msg, err := server.sendCertificate()
+	msg := server.sendCertificate()
 
-	c.Assert(err, IsNil)
 	c.Assert(msg, DeepEquals, append([]byte{
 		0x0b,             //certificate
 		0x00, 0x01, 0xdd, // length
@@ -167,8 +166,7 @@ func (s *ToySuite) TestClientReceiveCertificate(c *C) {
 	c.Assert(err, IsNil)
 
 	server.Certificate = serverCertificate
-	msg, err := server.sendCertificate()
-	c.Assert(err, IsNil)
+	msg := server.sendCertificate()
 
 	certificateMsg := deserializeHandshakeMessage(msg)
 	err = client.receiveCertificate(certificateMsg.message)

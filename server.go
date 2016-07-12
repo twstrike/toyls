@@ -115,7 +115,7 @@ func (s *handshakeServer) sendServerHello(version protocolVersion, cipherSuite c
 	}), nil
 }
 
-func (s *handshakeServer) sendCertificate() ([]byte, error) {
+func (s *handshakeServer) sendCertificate() []byte {
 	//Should have checked if the agreed-upon key exchange method uses
 	//certificates for authentication. For now, our method always supports.
 	return sendCertificate(s.Certificate, s)
@@ -266,10 +266,7 @@ func (c *handshakeServer) doHandshake() {
 	c.writeRecord(HANDSHAKE, m)
 
 	//TODO: they should all be in receive client hello
-	m, err = c.sendCertificate()
-	if err != nil {
-		panic(err)
-	}
+	m = c.sendCertificate()
 	fmt.Println("server (certificate) ->")
 	c.writeRecord(HANDSHAKE, m)
 

@@ -140,8 +140,7 @@ func deserializeHandshakeMessage(m []byte) *handshakeMessage {
 	}
 }
 
-//TODO: remove this error
-func sendCertificate(cert tls.Certificate, w io.Writer) ([]byte, error) {
+func sendCertificate(cert tls.Certificate, w io.Writer) []byte {
 	//XXX I think this is wrong. It should be a list of certificateChains, maybe.
 	body := &certificateBody{
 		//XXX Should we deep-copy?
@@ -150,13 +149,13 @@ func sendCertificate(cert tls.Certificate, w io.Writer) ([]byte, error) {
 
 	message, err := serializeCertificate(body)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 
 	w.Write(message)
 	return serializeHandshakeMessage(&handshakeMessage{
 		certificateType, message,
-	}), nil
+	})
 }
 
 //See: 7.4.7.1.  RSA-Encrypted Premaster Secret Message

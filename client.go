@@ -110,10 +110,7 @@ func (c *handshakeClient) receiveCertificateRequest(cert []byte) {
 func (c *handshakeClient) receiveServerHelloDone(done []byte) ([][]byte, error) {
 	c.Write(done)
 
-	certificateMsg, err := c.sendCertificate()
-	if err != nil {
-		return nil, err
-	}
+	certificateMsg := c.sendCertificate()
 
 	clientKeyExchange, err := c.sendClientKeyExchange()
 	if err != nil {
@@ -125,9 +122,9 @@ func (c *handshakeClient) receiveServerHelloDone(done []byte) ([][]byte, error) 
 	return zip(certificateMsg, clientKeyExchange, certificateVerify), err
 }
 
-func (c *handshakeClient) sendCertificate() ([]byte, error) {
+func (c *handshakeClient) sendCertificate() []byte {
 	if !c.shouldSendCertificate {
-		return nil, nil
+		return nil
 	}
 
 	return sendCertificate(c.Certificate, c)

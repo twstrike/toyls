@@ -2,7 +2,9 @@ package toyls
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -140,7 +142,18 @@ func (s *handshakeServer) sendServerHelloDone() ([]byte, error) {
 // func receiveCertificate()
 // func receiveCertificateVerify()
 func (s *handshakeServer) receiveClientKeyExchange(m []byte) error {
-	//TODO
+	var err error
+	ciphertext := m[2:] // from the size onward
+	priv, ok := s.Certificate.PrivateKey.(crypto.Decrypter)
+	if !ok {
+		return errors.New("certificate private key does not implement crypto.Decrypter")
+	}
+
+	s.preMasterSecret, err = priv.Decrypt(rand.Reader, ciphertext, &rsa.PKCS1v15DecryptOptions{SessionKeyLen: 48})
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

@@ -431,9 +431,9 @@ func (c *Conn) establishKeys(masterSecret [48]byte, clientRandom, serverRandom [
 		serverRandom: serverRandom,
 
 		//XXX This is all fixed to use TLS_RSA_WITH_AES_128_CBC_SHA256
-		encKeyLength:  32,
+		encKeyLength:  16,
 		fixedIVLength: 16,
-		macKeyLength:  32,
+		macKeyLength:  20,
 	}
 
 	keys := keysFromMasterSecret(params)

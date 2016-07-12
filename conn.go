@@ -359,6 +359,13 @@ func (c *Conn) prepareCipherSpec(writeParameters keyingMaterial) {
 	default:
 		panic("unexpected entity value")
 	}
+
+	//It is only used because of conn.writeIV()
+	//XXX Remove me after IV is random
+	c.wp = keyingMaterial{
+		clientIV: writeParameters.clientIV,
+		serverIV: writeParameters.serverIV,
+	}
 }
 
 func (c *Conn) prepareServerCipherSpec(writeParameters keyingMaterial) {

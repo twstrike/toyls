@@ -252,15 +252,24 @@ func serializeCertificate(c *certificateBody) ([]byte, error) {
 }
 
 func (c *handshakeServer) doHandshake() {
-	r, _ := c.readRecord(HANDSHAKE)
+	r, err := c.readRecord(HANDSHAKE)
+	if err != nil {
+		panic(err)
+	}
 	h := deserializeHandshakeMessage(r)
 
-	m, _ := c.receiveClientHello(h.message)
+	m, err := c.receiveClientHello(h.message)
+	if err != nil {
+		panic(err)
+	}
 	fmt.Println("server (serverHello) ->")
 	c.writeRecord(HANDSHAKE, m)
 
 	//TODO: they should all be in receive client hello
-	m, _ = c.sendCertificate()
+	m, err = c.sendCertificate()
+	if err != nil {
+		panic(err)
+	}
 	fmt.Println("server (certificate) ->")
 	c.writeRecord(HANDSHAKE, m)
 
@@ -271,24 +280,36 @@ func (c *handshakeServer) doHandshake() {
 	//send it NOW.
 
 	//MUST always finishes with a serverHelloDone
-	m, _ = c.sendServerHelloDone()
+	m, err = c.sendServerHelloDone()
+	if err != nil {
+		panic(err)
+	}
 	fmt.Println("server (serverHelloDone) ->")
 	c.writeRecord(HANDSHAKE, m)
 
-	r, _ = c.readRecord(HANDSHAKE)
+	r, err = c.readRecord(HANDSHAKE)
+	if err != nil {
+		panic(err)
+	}
 	h = deserializeHandshakeMessage(r)
 	c.receiveClientKeyExchange(h.message)
 
 	c.masterSecret = computeMasterSecret(c.preMasterSecret[:], c.clientRandom[:], c.serverRandom[:])
 	c.recordProtocol.establishKeys(c.masterSecret, c.clientRandom, c.serverRandom)
 
-	r, _ = c.readRecord(CHANGE_CIPHER_SPEC)
+	r, err = c.readRecord(CHANGE_CIPHER_SPEC)
+	if err != nil {
+		panic(err)
+	}
 
 	//Reception of [ChangeCipherSpec] causes the receiver to instruct the record
 	//layer to immediately copy the read pending state into the read current state.
 	c.recordProtocol.changeReadCipherSpec()
 
-	r, _ = c.readRecord(HANDSHAKE)
+	r, err = c.readRecord(HANDSHAKE) //finished
+	if err != nil {
+		panic(err)
+	}
 	h = deserializeHandshakeMessage(r)
 	c.receiveFinished(h.message) //???
 
@@ -299,7 +320,10 @@ func (c *handshakeServer) doHandshake() {
 	//record layer to make the write pending state the write active state.
 	c.recordProtocol.changeWriteCipherSpec()
 
-	m, _ = c.sendFinished()
+	m, err = c.sendFinished()
+	if err != nil {
+		panic(err)
+	}
 	fmt.Println("server (finished) ->")
 	c.writeRecord(HANDSHAKE, m)
 }

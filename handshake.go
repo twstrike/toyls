@@ -172,6 +172,7 @@ func encryptPreMasterSecret(preMasterSecret []byte, pub *rsa.PublicKey) (*encryp
 
 	return &encryptedPreMasterSecretBody{out}, nil
 }
+
 func generatePreMasterSecret(r io.Reader) (*preMasterSecret, error) {
 	s := &preMasterSecret{
 		clientVersion: VersionTLS12,

@@ -31,7 +31,6 @@ func newHandshakeClient() *handshakeClient {
 }
 
 func (c *handshakeClient) receiveHelloRequest(r []byte) ([]byte, error) {
-	c.Write(r)
 	return c.sendClientHello()
 }
 
@@ -52,7 +51,6 @@ func (c *handshakeClient) sendClientHello() ([]byte, error) {
 	}
 
 	serializeRandom(c.clientRandom[:], &clientRandom)
-	c.Write(message)
 
 	return serializeHandshakeMessage(&handshakeMessage{
 		clientHelloType, message,
@@ -66,7 +64,6 @@ func (c *handshakeClient) receiveServerHello(message []byte) error {
 	}
 
 	serializeRandom(c.serverRandom[:], &serverHello.random)
-	c.Write(message)
 
 	return nil
 }
@@ -91,25 +88,20 @@ func (c *handshakeClient) receiveCertificate(cert []byte) error {
 		return fmt.Errorf("tls: unsupported type of public key: %T", pubKey)
 	}
 
-	c.Write(cert)
 	return nil
 }
 
 func (c *handshakeClient) receiveServerKeyExchange(message []byte) {
 	//TODO
-	c.Write(message)
 }
 
 func (c *handshakeClient) receiveCertificateRequest(cert []byte) {
 	//Should save the certificateRequest, and only send the message after
 	//receiving a helloDone
 	c.shouldSendCertificate = true
-	c.Write(cert)
 }
 
 func (c *handshakeClient) receiveServerHelloDone(done []byte) ([][]byte, error) {
-	c.Write(done)
-
 	certificateMsg := c.sendCertificate()
 
 	clientKeyExchange, err := c.sendClientKeyExchange()
@@ -127,7 +119,7 @@ func (c *handshakeClient) sendCertificate() []byte {
 		return nil
 	}
 
-	return sendCertificate(c.Certificate, c)
+	return sendCertificate(c.Certificate)
 }
 
 func (c *handshakeClient) sendClientKeyExchange() ([]byte, error) {
@@ -152,7 +144,6 @@ func (c *handshakeClient) sendClientKeyExchange() ([]byte, error) {
 		return nil, err
 	}
 
-	c.Write(message)
 	return serializeHandshakeMessage(&handshakeMessage{
 		clientKeyExchangeType, message,
 	}), nil
@@ -234,6 +225,7 @@ func (c *handshakeClient) doHandshake() {
 		fmt.Println(err.Error())
 	}
 	fmt.Println("client (clientHello) ->")
+	c.Write(m)
 	c.writeRecord(HANDSHAKE, m)
 
 	r, err := c.readRecord(HANDSHAKE)
@@ -241,6 +233,7 @@ func (c *handshakeClient) doHandshake() {
 		fmt.Println(err.Error())
 	}
 	h := deserializeHandshakeMessage(r)
+	c.Write(r)
 	c.receiveServerHello(h.message)
 
 	r, err = c.readRecord(HANDSHAKE)
@@ -248,6 +241,7 @@ func (c *handshakeClient) doHandshake() {
 		fmt.Println(err.Error())
 	}
 	h = deserializeHandshakeMessage(r)
+	c.Write(r)
 	c.receiveCertificate(h.message)
 
 	r, err = c.readRecord(HANDSHAKE)
@@ -255,12 +249,14 @@ func (c *handshakeClient) doHandshake() {
 		fmt.Println(err.Error())
 	}
 	h = deserializeHandshakeMessage(r)
+	c.Write(r)
 	toSend, err := c.receiveServerHelloDone(h.message)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
 
 	fmt.Println("client (clientKeyExchange) ->")
+	c.Write(toSend[0])
 	c.writeRecord(HANDSHAKE, toSend[0])
 
 	c.masterSecret = computeMasterSecret(c.preMasterSecret[:], c.clientRandom[:], c.serverRandom[:])

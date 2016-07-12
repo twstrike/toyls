@@ -31,8 +31,6 @@ func newHandshakeServer() *handshakeServer {
 }
 
 func (s *handshakeServer) receiveClientHello(m []byte) ([]byte, error) {
-	s.Write(m)
-
 	clientHello, err := deserializeClientHello(m)
 	if err != nil {
 		return nil, err
@@ -108,7 +106,6 @@ func (s *handshakeServer) sendServerHello(version protocolVersion, cipherSuite c
 	}
 
 	serializeRandom(s.serverRandom[:], &serverRandom)
-	s.Write(message)
 
 	return serializeHandshakeMessage(&handshakeMessage{
 		serverHelloType, message,
@@ -118,18 +115,16 @@ func (s *handshakeServer) sendServerHello(version protocolVersion, cipherSuite c
 func (s *handshakeServer) sendCertificate() []byte {
 	//Should have checked if the agreed-upon key exchange method uses
 	//certificates for authentication. For now, our method always supports.
-	return sendCertificate(s.Certificate, s)
+	return sendCertificate(s.Certificate)
 }
 
 func (s *handshakeServer) sendServerKeyExchange() ([]byte, error) {
 	//Our key exchange method does not send this message. Easy ;)
-	//s.Write(m)
 	return nil, nil
 }
 
 func (s *handshakeServer) sendCertificateRequest() ([]byte, error) {
 	//Not supported, for now. Easy ;)
-	//s.Write(m)
 	return nil, nil
 }
 
@@ -158,8 +153,6 @@ func (s *handshakeServer) receiveClientKeyExchange(m []byte) error {
 }
 
 func (s *handshakeServer) receiveFinished(m []byte) error {
-	s.Write(m)
-
 	//TODO
 	return nil
 }
@@ -256,18 +249,23 @@ func (c *handshakeServer) doHandshake() {
 	if err != nil {
 		panic(err)
 	}
+
 	h := deserializeHandshakeMessage(r)
+	c.Write(r)
 
 	m, err := c.receiveClientHello(h.message)
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println("server (serverHello) ->")
+
+	c.Write(m)
 	c.writeRecord(HANDSHAKE, m)
 
 	//TODO: they should all be in receive client hello
 	m = c.sendCertificate()
 	fmt.Println("server (certificate) ->")
+	c.Write(m)
 	c.writeRecord(HANDSHAKE, m)
 
 	//IF we need a Server Key Exchange Message,
@@ -282,6 +280,7 @@ func (c *handshakeServer) doHandshake() {
 		panic(err)
 	}
 	fmt.Println("server (serverHelloDone) ->")
+	c.Write(m)
 	c.writeRecord(HANDSHAKE, m)
 
 	r, err = c.readRecord(HANDSHAKE)
@@ -289,6 +288,7 @@ func (c *handshakeServer) doHandshake() {
 		panic(err)
 	}
 	h = deserializeHandshakeMessage(r)
+	c.Write(r)
 	c.receiveClientKeyExchange(h.message)
 
 	c.masterSecret = computeMasterSecret(c.preMasterSecret[:], c.clientRandom[:], c.serverRandom[:])
@@ -307,7 +307,9 @@ func (c *handshakeServer) doHandshake() {
 	if err != nil {
 		panic(err)
 	}
+
 	h = deserializeHandshakeMessage(r)
+	c.Write(r)
 	c.receiveFinished(h.message) //???
 
 	fmt.Println("server (changeCipherSpec) ->")

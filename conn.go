@@ -215,14 +215,14 @@ func (c *Conn) fragment(contentType ContentType, version protocolVersion, conten
 
 func (c *Conn) handleFragment(in io.Reader) (TLSCiphertext, error) {
 	cipherText := TLSCiphertext{}
-	header, err := readFromUntil(in, 5)
+	header, err := readFromUntil(c.rawInbuf, in, 5)
 	if err != nil {
 		return cipherText, err
 	}
 	cipherText.contentType = ContentType(header[0])
 	cipherText.version, header = extractProtocolVersion(header[1:])
 	cipherText.length, header = extractUint16(header)
-	cipherText.fragment, err = readFromUntil(in, int(cipherText.length))
+	cipherText.fragment, err = readFromUntil(c.rawInbuf, in, int(cipherText.length))
 
 	if err != nil {
 		return cipherText, err
@@ -499,23 +499,25 @@ func (c *Conn) changeReadCipherSpec() {
 	c.read = c.pendingRead
 }
 
-func readFromUntil(in io.Reader, i int) ([]byte, error) {
+func readFromUntil(rawInbuf bytes.Buffer, in io.Reader, i int) ([]byte, error) {
 	ret := make([]byte, i)
-	m := 0
-	temp := ret[:]
+	m, err := rawInbuf.Read(ret)
+	if err != nil && err != io.EOF {
+		return ret, err
+	}
+	temp := ret[m:]
 	for {
-		if m < i {
-			n, err := in.Read(temp)
-			if err, ok := err.(*net.OpError); ok && err.Timeout() {
-				continue
-			} else if err != nil {
-				return nil, err
-			}
-			m += n
-			temp = ret[m:]
-		} else {
+		n, err := in.Read(temp)
+		m += n
+		if m >= i {
+			// Enough
 			break
 		}
+		if err != nil {
+			rawInbuf.Write(temp)
+			return ret, err
+		}
+		temp = ret[m:]
 	}
 	return ret, nil
 }

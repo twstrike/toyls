@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"time"
 
 	"crypto/tls"
 
@@ -60,9 +61,15 @@ func (s *LiveToySuite) TestHandshakeAndApplicationData(c *C) {
 	reply := make([]byte, 6)
 	conn.Read(reply)
 	fmt.Println("Client Receive:", string(reply))
+
 	reply = make([]byte, 6)
 	conn.Read(reply)
 	fmt.Println("Client Receive:", string(reply))
 
-	conn.Close()
+	defer func() {
+		c.Assert(recover(), NotNil)
+	}()
+	conn.SetReadDeadline(time.Now())
+	reply = make([]byte, 1)
+	conn.Read(reply)
 }

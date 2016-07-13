@@ -1,9 +1,6 @@
 package toyls
 
-import (
-	"errors"
-	"math"
-)
+import "errors"
 
 const (
 	cipherSuiteLen     = 2
@@ -62,7 +59,7 @@ func extractSessionID(src []byte) ([]byte, []byte) {
 
 func extractCipherSuites(src []byte) ([]cipherSuite, []byte, error) {
 	vectorLen, p := extractUint16(src)
-	if vectorLen < 2 || vectorLen > uint16(math.Pow(2, 16))-2 {
+	if vectorLen < 2 || vectorLen > 0xfffe {
 		return nil, p, errors.New("The cipher suite vector should contain <2..2^16-2> bytes.")
 	}
 
@@ -84,7 +81,7 @@ func extractCipherSuite(dst, src []byte) []byte {
 
 func extractCompressionMethods(src []byte) ([]byte, []byte, error) {
 	vectorLen := int(src[0])
-	if vectorLen < 1 || vectorLen > int(math.Pow(2, 8))-1 {
+	if vectorLen < 1 || vectorLen > 0xff {
 		return nil, src[1:], errors.New("The compression methods vector should contain <1..2^8-2> bytes.")
 	}
 

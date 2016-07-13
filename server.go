@@ -6,9 +6,9 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
-	"math"
 	"errors"
 	"fmt"
+	"math"
 )
 
 type handshakeServer struct {
@@ -233,7 +233,8 @@ func deserializeCertificate(c []byte) (*certificateBody, error) {
 func serializeCertificate(c *certificateBody) ([]byte, error) {
 	certListBody := make([]byte, 0, 0xffffff) // 2^24-1 is maximim length
 	for _, ci := range c.certificateList {
-		if uint16(len(ci)) > uint16(math.Pow(2, 24) - 1) {
+		//XXX Actually, ALL certificates cant be bigger than this size
+		if uint16(len(ci)) > uint16(math.Pow(2, 24)-1) {
 			return nil, errors.New("A certificate in the list has exceeded the size limiet of 2^24-1")
 		}
 		certificateLen := writeBytesFromUint24(uint32(len(ci)))

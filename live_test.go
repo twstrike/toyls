@@ -2,6 +2,7 @@ package toyls
 
 import (
 	"flag"
+	"fmt"
 	"net"
 
 	"crypto/tls"
@@ -21,15 +22,7 @@ func (s *LiveToySuite) SetUpSuite(c *C) {
 	}
 }
 
-func (s *LiveToySuite) TestClientHandshake(c *C) {
-	conn, err := Dial("tcp", "mail.google.com:443")
-	if err != nil {
-		panic("failed to connect: " + err.Error())
-	}
-	conn.Close()
-}
-
-func (s *LiveToySuite) TestServerHandshake(c *C) {
+func (s *LiveToySuite) TestHandshakeAndApplicationData(c *C) {
 	pem := []byte(rsaCertPEM + rsaKeyPEM)
 	cert, err := tls.X509KeyPair(pem, pem)
 	c.Assert(err, IsNil)
@@ -39,7 +32,7 @@ func (s *LiveToySuite) TestServerHandshake(c *C) {
 	l, err := net.Listen("tcp", ":12345")
 	c.Assert(err, IsNil)
 
-	done := make(chan bool, 0)
+	handshakeDone := make(chan bool, 0)
 	go func() {
 		conn, err := l.Accept()
 		c.Assert(err, IsNil)
@@ -48,23 +41,28 @@ func (s *LiveToySuite) TestServerHandshake(c *C) {
 		server.handshaker.(*handshakeServer).Certificate = cert
 		server.rawConn = conn
 		server.doHandshake()
-		done <- true
+		<-handshakeDone
+
+		reply := make([]byte, 12)
+		server.Read(reply)
+		fmt.Println("Server Receive:", string(reply))
+		server.Write([]byte("hello client"))
 	}()
 
-	conn, err := tls.Dial("tcp", ":12345", &tls.Config{
-		InsecureSkipVerify:     true,
-		SessionTicketsDisabled: true,
-		MinVersion:             tls.VersionTLS12,
-		MaxVersion:             tls.VersionTLS12,
-		CipherSuites: []uint16{
-			tls.TLS_RSA_WITH_AES_128_CBC_SHA,
-		},
-	})
-
+	conn, err := Dial("tcp", ":12345")
 	if err != nil {
 		panic("failed to connect: " + err.Error())
 	}
-	conn.Close()
+	handshakeDone <- true
 
-	<-done
+	conn.Write([]byte("hello server"))
+
+	reply := make([]byte, 6)
+	conn.Read(reply)
+	fmt.Println("Client Receive:", string(reply))
+	reply = make([]byte, 6)
+	conn.Read(reply)
+	fmt.Println("Client Receive:", string(reply))
+
+	conn.Close()
 }

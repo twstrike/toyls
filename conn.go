@@ -1,6 +1,7 @@
 package toyls
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/hmac"
@@ -49,6 +50,7 @@ type Conn struct {
 
 	rawConn     net.Conn
 	calledClose int
+	inbuf       bytes.Buffer
 }
 
 func newClient() *Conn {
@@ -100,6 +102,33 @@ func (c *Conn) SetChunkSize(chunkSize uint16) {
 func (c *Conn) Close() {
 	c.rawConn.Close()
 	return
+}
+
+func (c *Conn) Read(b []byte) (n int, err error) {
+	n = 0
+	for {
+		m, err := c.inbuf.Read(b[n:])
+		if err != nil && err != io.EOF {
+			return n, err
+		}
+		n += m
+		if n >= len(b) {
+			break
+		}
+		data, err := c.readRecord(APPLICATION_DATA)
+		if err != nil {
+			return n, err
+		}
+		c.inbuf.Write(data)
+	}
+	return n, nil
+}
+
+func (c *Conn) Write(b []byte) (n int, err error) {
+	if err := c.writeRecord(APPLICATION_DATA, b); err != nil {
+		return len(b), err
+	}
+	return len(b), nil
 }
 
 func (c *Conn) writeRecord(contentType ContentType, content []byte) error {

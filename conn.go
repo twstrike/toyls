@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"time"
 )
 
 const recordHeaderLen = 5
@@ -51,6 +52,7 @@ type Conn struct {
 	rawConn     net.Conn
 	calledClose int
 	inbuf       bytes.Buffer
+	rawInbuf    bytes.Buffer
 }
 
 func newClient() *Conn {
@@ -104,6 +106,10 @@ func (c *Conn) Close() {
 	return
 }
 
+func (c *Conn) SetReadDeadline(t time.Time) error {
+	return c.rawConn.SetReadDeadline(t)
+}
+
 func (c *Conn) Read(b []byte) (n int, err error) {
 	n = 0
 	for {
@@ -122,6 +128,10 @@ func (c *Conn) Read(b []byte) (n int, err error) {
 		c.inbuf.Write(data)
 	}
 	return n, nil
+}
+
+func (c *Conn) SetWriteDeadline(t time.Time) error {
+	return c.rawConn.SetWriteDeadline(t)
 }
 
 func (c *Conn) Write(b []byte) (n int, err error) {

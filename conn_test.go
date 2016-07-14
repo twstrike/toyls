@@ -9,8 +9,8 @@ import (
 )
 
 func handshakenClientAndServer() (*Conn, *Conn) {
-	connA := NewConn(CLIENT)
-	connB := NewConn(SERVER)
+	connA := newClient()
+	connB := newServer()
 
 	connA.handshake.finished = true
 	connB.handshake.finished = true
@@ -56,7 +56,7 @@ func handshakenClientAndServer() (*Conn, *Conn) {
 }
 
 func (s *ToySuite) TestConnHandleFragment(c *C) {
-	conn := NewConn(CLIENT)
+	conn := newClient()
 	in := &mockConnIOReaderWriter{readwrite: []byte{22, 0x03, 0x03, 0x00, 0x01, 0x00, 22, 0x03, 0x03, 0x00, 0x01, 0x00}}
 	cipherText, _ := conn.handleFragment(in)
 
@@ -76,7 +76,7 @@ func (s *ToySuite) TestConnHandleFragment(c *C) {
 func (s *ToySuite) TestConnHandleStreamCipherText(c *C) {
 	c.Skip("Not implemented yet")
 
-	conn := NewConn(CLIENT)
+	conn := newClient()
 	conn.read.mac = nullMacAlgorithm{}
 
 	ciphered := GenericStreamCipher{
@@ -127,7 +127,7 @@ func (s *ToySuite) TestConnHandleBlockCipherText(c *C) {
 }
 
 func (s *ToySuite) TestConnHandleCompressed(c *C) {
-	conn := NewConn(CLIENT)
+	conn := newClient()
 	compressed := TLSCompressed{
 		contentType: HANDSHAKE,
 		version:     VersionTLS12,
@@ -148,7 +148,7 @@ func (s *ToySuite) TestConnHandleCompressed(c *C) {
 func (s *ToySuite) TestConnStreamMacAndEncrypt(c *C) {
 	c.Skip("not implemented")
 
-	conn := NewConn(CLIENT)
+	conn := newClient()
 	compressed := TLSCompressed{
 		contentType: HANDSHAKE,
 		version:     VersionTLS12,
@@ -288,7 +288,7 @@ func (s *ToySuite) TestConnReadWriteBigText(c *C) {
 }
 
 func (s *ToySuite) TestConnFragment(c *C) {
-	conn := NewConn(CLIENT)
+	conn := newClient()
 	fragmentLen := 0x10
 	conn.SetChunkSize(uint16(fragmentLen))
 

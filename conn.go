@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"crypto/sha1"
 	"crypto/subtle"
+	"crypto/tls"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -19,13 +20,13 @@ import (
 
 const recordHeaderLen = 5
 
-func Dial(network, addr string) (*Conn, error) {
-	return DialWithDialer(new(net.Dialer), network, addr)
+func Dial(network, addr string, config *tls.Config) (*Conn, error) {
+	return DialWithDialer(new(net.Dialer), network, addr, config)
 }
 
-func DialWithDialer(dialer *net.Dialer, network, addr string) (*Conn, error) {
+func DialWithDialer(dialer *net.Dialer, network, addr string, config *tls.Config) (*Conn, error) {
 	rawConn, err := dialer.Dial(network, addr)
-	conn := NewConn(CLIENT)
+	conn := NewConn(CLIENT, config)
 	conn.rawConn = rawConn
 	return conn, err
 }
@@ -48,6 +49,7 @@ type handshake struct {
 
 type Conn struct {
 	entity connectionEnd
+	config *tls.Config
 
 	read, pendingRead   encryptionState
 	write, pendingWrite encryptionState
@@ -63,16 +65,17 @@ type Conn struct {
 }
 
 func newClient() *Conn {
-	return NewConn(CLIENT)
+	return NewConn(CLIENT, &tls.Config{})
 }
 
 func newServer() *Conn {
-	return NewConn(SERVER)
+	return NewConn(SERVER, &tls.Config{})
 }
 
-func NewConn(entity connectionEnd) *Conn {
+func NewConn(entity connectionEnd, config *tls.Config) *Conn {
 	conn := Conn{
 		entity:    entity,
+		config:    config,
 		chunkSize: uint16(0x4000),
 		write: encryptionState{
 			version:     VersionTLS12,
@@ -92,6 +95,7 @@ func NewConn(entity connectionEnd) *Conn {
 	case CLIENT:
 		conn.handshaker = &handshakeClient{
 			recordProtocol: &conn,
+			Config:         config,
 		}
 	case SERVER:
 		conn.handshaker = &handshakeServer{

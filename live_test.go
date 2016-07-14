@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"crypto/tls"
+	"crypto/x509"
 
 	. "gopkg.in/check.v1"
 )
@@ -23,11 +24,18 @@ func (s *LiveToySuite) SetUpSuite(c *C) {
 }
 
 func (s *LiveToySuite) TestHandshakeAndApplicationData(c *C) {
-	pem := []byte(rsaCertPEM + rsaKeyPEM)
-	cert, err := tls.X509KeyPair(pem, pem)
+	cert, err := tls.X509KeyPair([]byte(rsaCertPEM), []byte(rsaKeyPEM))
 	c.Assert(err, IsNil)
 	c.Assert(len(cert.Certificate), Equals, 1)
-	c.Assert(len(cert.Certificate[0]), Equals, 0x01d7)
+	c.Assert(len(cert.Certificate[0]), Equals, 0x0392)
+
+	roots := x509.NewCertPool()
+	ok := roots.AppendCertsFromPEM([]byte(rsaCertPEM))
+	c.Assert(ok, Equals, true)
+	tlsConf := &tls.Config{
+		RootCAs: roots,
+		//Time:    func() time.Time { return time.Unix(0, 0) },
+	}
 
 	l, err := net.Listen("tcp", ":12345")
 	c.Assert(err, IsNil)
@@ -47,12 +55,13 @@ func (s *LiveToySuite) TestHandshakeAndApplicationData(c *C) {
 		server.Write([]byte("hello client"))
 	}()
 
-	conn, err := Dial("tcp", ":12345")
+	conn, err := Dial("tcp", ":12345", tlsConf)
 	if err != nil {
 		panic("failed to connect: " + err.Error())
 	}
 
-	conn.Write([]byte("hello server"))
+	_, err = conn.Write([]byte("hello server"))
+	c.Assert(err, IsNil)
 
 	reply := make([]byte, 6)
 	conn.Read(reply)

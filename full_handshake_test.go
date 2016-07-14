@@ -62,9 +62,9 @@ func (s *ToySuite) TestFullHandshakeNew(c *C) {
 	client := newClient()
 	server := newServer()
 
-	pem := []byte(rsaCertPEM + rsaKeyPEM)
-	server.handshaker.(*handshakeServer).Certificate, err = tls.X509KeyPair(pem, pem)
+	cert, err := tls.X509KeyPair([]byte(rsaCertPEM), []byte(rsaKeyPEM))
 	c.Assert(err, IsNil)
+	server.handshaker.(*handshakeServer).Certificate = cert
 
 	pipeHandshakers(client.handshaker, server.handshaker)
 

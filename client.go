@@ -15,20 +15,24 @@ const (
 )
 
 type handshakeClient struct {
-	tls.Certificate
 	serverCertificate     *x509.Certificate
 	shouldSendCertificate bool
 
-	recordProtocol
+	*tls.Config
+	tls.Certificate //XXX replace by Config.Certificates[0] ??
 
 	clientRandom, serverRandom [32]byte
 	preMasterSecret            []byte
 	masterSecret               [48]byte
+
 	bytes.Buffer
+	recordProtocol
 }
 
 func newHandshakeClient() *handshakeClient {
-	return &handshakeClient{}
+	return &handshakeClient{Config: &tls.Config{
+		InsecureSkipVerify: true,
+	}}
 }
 
 func (c *handshakeClient) receiveHelloRequest(r []byte) ([]byte, error) {
@@ -69,14 +73,62 @@ func (c *handshakeClient) receiveServerHello(message []byte) error {
 	return nil
 }
 
+func parseCertificateList(certList [][]byte) ([]*x509.Certificate, error) {
+	certs := make([]*x509.Certificate, 0, len(certList))
+	for _, asn1Data := range certList {
+		cert, err := x509.ParseCertificate(asn1Data)
+		if err != nil {
+			return certs, err
+		}
+
+		certs = append(certs, cert)
+	}
+
+	return certs, nil
+}
+
+func (c *handshakeClient) verifyCertificateChain(chain []*x509.Certificate) error {
+	if c.Config.InsecureSkipVerify {
+		return nil
+	}
+
+	opts := x509.VerifyOptions{
+		Roots: c.Config.RootCAs,
+		//CurrentTime:   c.Config.Time(),
+		DNSName:       c.Config.ServerName,
+		Intermediates: x509.NewCertPool(),
+	}
+
+	for i, cert := range chain {
+		if i == 0 {
+			continue
+		}
+		opts.Intermediates.AddCert(cert)
+	}
+
+	_, err := chain[0].Verify(opts)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (c *handshakeClient) receiveCertificate(cert []byte) error {
 	certMsg, err := deserializeCertificate(cert)
 	if err != nil {
 		return err
 	}
 
+	certs, err := parseCertificateList(certMsg.certificateList)
+	if err != nil {
+		return err
+	}
+
 	//XXX We get only the first certificate
-	c.serverCertificate, err = x509.ParseCertificate(certMsg.certificateList[0])
+	c.serverCertificate = certs[0]
+
+	err = c.verifyCertificateChain(certs)
 	if err != nil {
 		return err
 	}

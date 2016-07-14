@@ -99,9 +99,9 @@ func (s *ToySuite) TestReceiveClientHandshake(c *C) {
 	clientHello := deserializeHandshakeMessage(msg)
 	c.Assert(clientHello.msgType, Equals, clientHelloType)
 
-	msg, err = server.receiveClientHello(clientHello.message)
-	c.Assert(len(msg), Equals, 0x26+4)
-	c.Assert(msg[:6], DeepEquals, []byte{
+	toSend, err := server.receiveClientHello(clientHello.message)
+	c.Assert(len(toSend[0]), Equals, 0x26+4)
+	c.Assert(toSend[0][:6], DeepEquals, []byte{
 		0x02, //server_hello
 
 		0x00, 0x00, 0x26, // length
@@ -111,7 +111,7 @@ func (s *ToySuite) TestReceiveClientHandshake(c *C) {
 	})
 
 	//We skip random (32 bytes)
-	c.Assert(msg[38:], DeepEquals, []byte{
+	c.Assert(toSend[0][38:], DeepEquals, []byte{
 		//session_id (SessionID)
 		0x00, //length
 

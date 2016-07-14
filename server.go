@@ -30,7 +30,7 @@ func newHandshakeServer() *handshakeServer {
 	return &handshakeServer{}
 }
 
-func (s *handshakeServer) receiveClientHello(m []byte) ([]byte, error) {
+func (s *handshakeServer) receiveClientHello(m []byte) ([][]byte, error) {
 	clientHello, err := deserializeClientHello(m)
 	if err != nil {
 		return nil, err
@@ -38,7 +38,35 @@ func (s *handshakeServer) receiveClientHello(m []byte) ([]byte, error) {
 
 	serializeRandom(s.clientRandom[:], &clientHello.random)
 
-	return s.agree(clientHello)
+	serverHello, err := s.agree(clientHello)
+	if err != nil {
+		return nil, err
+	}
+
+	s.Write(serverHello)
+
+	//TODO: they should all be in receive client hello
+	serverCertificate := s.sendCertificate()
+	s.Write(serverCertificate)
+
+	//IF we need a Server Key Exchange Message,
+	//send it NOW.
+	serverKeyExchange := []byte(nil)
+	s.Write(serverKeyExchange)
+
+	//IF we need a Certificate Request,
+	//send it NOW.
+	certificateRequest := []byte(nil)
+	s.Write(certificateRequest)
+
+	//MUST always finishes with a serverHelloDone
+	serverHelloDone, err := s.sendServerHelloDone()
+	if err != nil {
+		return nil, err
+	}
+	s.Write(serverHelloDone)
+
+	return zip(serverHello, serverCertificate, serverKeyExchange, certificateRequest, serverHelloDone), nil
 }
 
 func (s *handshakeServer) agree(h *clientHelloBody) ([]byte, error) {
@@ -255,43 +283,25 @@ func (c *handshakeServer) doHandshake() error {
 	h := deserializeHandshakeMessage(r)
 	c.Write(r)
 
-	m, err := c.receiveClientHello(h.message)
+	toSend, err := c.receiveClientHello(h.message)
 	if err != nil {
 		return err
 	}
-	c.Write(m)
 
 	//fmt.Println("server (serverHello) ->")
-	err = c.writeRecord(HANDSHAKE, m)
+	err = c.writeRecord(HANDSHAKE, toSend[0])
 	if err != nil {
 		return err
 	}
-
-	//TODO: they should all be in receive client hello
-	m = c.sendCertificate()
-	c.Write(m)
 
 	//fmt.Println("server (certificate) ->")
-	err = c.writeRecord(HANDSHAKE, m)
+	err = c.writeRecord(HANDSHAKE, toSend[1])
 	if err != nil {
 		return err
 	}
-
-	//IF we need a Server Key Exchange Message,
-	//send it NOW.
-
-	//IF we need a Certificate Request,
-	//send it NOW.
-
-	//MUST always finishes with a serverHelloDone
-	m, err = c.sendServerHelloDone()
-	if err != nil {
-		return err
-	}
-	c.Write(m)
 
 	//fmt.Println("server (serverHelloDone) ->")
-	err = c.writeRecord(HANDSHAKE, m)
+	err = c.writeRecord(HANDSHAKE, toSend[2])
 	if err != nil {
 		return err
 	}
@@ -327,7 +337,7 @@ func (c *handshakeServer) doHandshake() error {
 
 	h = deserializeHandshakeMessage(r)
 	c.Write(r)
-	err = c.receiveFinished(h.message) //???
+	err = c.receiveFinished(h.message) //should verify if finished has the correct hash
 	if err != nil {
 		return err
 	}
@@ -342,7 +352,7 @@ func (c *handshakeServer) doHandshake() error {
 	//record layer to make the write pending state the write active state.
 	c.recordProtocol.changeWriteCipherSpec()
 
-	m, err = c.sendFinished()
+	m, err := c.sendFinished()
 	if err != nil {
 		return err
 	}

@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -26,7 +27,6 @@ func DialWithDialer(dialer *net.Dialer, network, addr string) (*Conn, error) {
 	rawConn, err := dialer.Dial(network, addr)
 	conn := NewConn(CLIENT)
 	conn.rawConn = rawConn
-	conn.doHandshake()
 	return conn, err
 }
 
@@ -39,6 +39,13 @@ type encryptionState struct {
 	sequenceNumber [8]byte //uint64
 }
 
+type handshake struct {
+	sync.Mutex
+	handshaker
+
+	finished bool
+}
+
 type Conn struct {
 	entity connectionEnd
 
@@ -46,7 +53,7 @@ type Conn struct {
 	write, pendingWrite encryptionState
 	wp                  keyingMaterial
 
-	handshaker
+	handshake
 	chunkSize uint16
 
 	rawConn     net.Conn
@@ -95,6 +102,18 @@ func NewConn(entity connectionEnd) *Conn {
 	return &conn
 }
 
+func (c *Conn) Handshake() {
+	c.handshake.Lock()
+	defer c.handshake.Unlock()
+
+	if c.handshake.finished {
+		return
+	}
+
+	c.doHandshake()
+	c.handshake.finished = true
+}
+
 func (c *Conn) SetChunkSize(chunkSize uint16) {
 	if chunkSize < uint16(0x4000) {
 		c.chunkSize = chunkSize
@@ -111,6 +130,8 @@ func (c *Conn) SetReadDeadline(t time.Time) error {
 }
 
 func (c *Conn) Read(b []byte) (n int, err error) {
+	c.Handshake()
+
 	n = 0
 	for {
 		m, err := c.inbuf.Read(b[n:])
@@ -135,6 +156,8 @@ func (c *Conn) SetWriteDeadline(t time.Time) error {
 }
 
 func (c *Conn) Write(b []byte) (n int, err error) {
+	c.Handshake()
+
 	if err := c.writeRecord(APPLICATION_DATA, b); err != nil {
 		return len(b), err
 	}

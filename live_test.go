@@ -2,7 +2,6 @@ package toyls
 
 import (
 	"flag"
-	"fmt"
 	"net"
 	"time"
 
@@ -33,7 +32,6 @@ func (s *LiveToySuite) TestHandshakeAndApplicationData(c *C) {
 	l, err := net.Listen("tcp", ":12345")
 	c.Assert(err, IsNil)
 
-	handshakeDone := make(chan bool, 0)
 	go func() {
 		conn, err := l.Accept()
 		c.Assert(err, IsNil)
@@ -41,12 +39,11 @@ func (s *LiveToySuite) TestHandshakeAndApplicationData(c *C) {
 		server := newServer()
 		server.handshaker.(*handshakeServer).Certificate = cert
 		server.rawConn = conn
-		server.doHandshake()
-		<-handshakeDone
 
 		reply := make([]byte, 12)
 		server.Read(reply)
-		fmt.Println("Server Receive:", string(reply))
+		c.Assert(reply, DeepEquals, []byte("hello server"))
+
 		server.Write([]byte("hello client"))
 	}()
 
@@ -54,17 +51,16 @@ func (s *LiveToySuite) TestHandshakeAndApplicationData(c *C) {
 	if err != nil {
 		panic("failed to connect: " + err.Error())
 	}
-	handshakeDone <- true
 
 	conn.Write([]byte("hello server"))
 
 	reply := make([]byte, 6)
 	conn.Read(reply)
-	fmt.Println("Client Receive:", string(reply))
+	c.Assert(reply, DeepEquals, []byte("hello "))
 
 	reply = make([]byte, 6)
 	conn.Read(reply)
-	fmt.Println("Client Receive:", string(reply))
+	c.Assert(reply, DeepEquals, []byte("client"))
 
 	defer func() {
 		c.Assert(recover(), NotNil)

@@ -40,3 +40,7 @@ type alertMessage struct {
 	level       alertLevel
 	description alertDescription
 }
+
+func (m *alertMessage) marshall() []byte {
+	return []byte{byte(m.level), byte(m.description)}
+}

@@ -122,6 +122,7 @@ func (c *handshakeClient) receiveCertificate(cert []byte) error {
 
 	certs, err := parseCertificateList(certMsg.certificateList)
 	if err != nil {
+		c.sendFatalAlert(badCertificate)
 		return err
 	}
 
@@ -130,6 +131,7 @@ func (c *handshakeClient) receiveCertificate(cert []byte) error {
 
 	err = c.verifyCertificateChain(certs)
 	if err != nil {
+		c.sendFatalAlert(badCertificate)
 		return err
 	}
 
@@ -375,4 +377,9 @@ func (c *handshakeClient) doHandshake() error {
 
 func (c *handshakeClient) setRecordProtocol(r recordProtocol) {
 	c.recordProtocol = r
+}
+
+func (c *handshakeClient) sendFatalAlert(d alertDescription) {
+	alert := &alertMessage{fatal, d}
+	c.recordProtocol.writeRecord(ALERT, alert.marshall())
 }

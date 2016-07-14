@@ -7,7 +7,6 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"errors"
-	"fmt"
 	"math"
 )
 
@@ -250,7 +249,7 @@ func serializeCertificate(c *certificateBody) ([]byte, error) {
 func (c *handshakeServer) doHandshake() error {
 	r, err := c.readRecord(HANDSHAKE)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	h := deserializeHandshakeMessage(r)
@@ -258,18 +257,25 @@ func (c *handshakeServer) doHandshake() error {
 
 	m, err := c.receiveClientHello(h.message)
 	if err != nil {
-		panic(err)
+		return err
 	}
-	fmt.Println("server (serverHello) ->")
-
 	c.Write(m)
-	c.writeRecord(HANDSHAKE, m)
+
+	//fmt.Println("server (serverHello) ->")
+	err = c.writeRecord(HANDSHAKE, m)
+	if err != nil {
+		return err
+	}
 
 	//TODO: they should all be in receive client hello
 	m = c.sendCertificate()
-	fmt.Println("server (certificate) ->")
 	c.Write(m)
-	c.writeRecord(HANDSHAKE, m)
+
+	//fmt.Println("server (certificate) ->")
+	err = c.writeRecord(HANDSHAKE, m)
+	if err != nil {
+		return err
+	}
 
 	//IF we need a Server Key Exchange Message,
 	//send it NOW.
@@ -280,26 +286,34 @@ func (c *handshakeServer) doHandshake() error {
 	//MUST always finishes with a serverHelloDone
 	m, err = c.sendServerHelloDone()
 	if err != nil {
-		panic(err)
+		return err
 	}
-	fmt.Println("server (serverHelloDone) ->")
 	c.Write(m)
-	c.writeRecord(HANDSHAKE, m)
+
+	//fmt.Println("server (serverHelloDone) ->")
+	err = c.writeRecord(HANDSHAKE, m)
+	if err != nil {
+		return err
+	}
 
 	r, err = c.readRecord(HANDSHAKE)
 	if err != nil {
-		panic(err)
+		return err
 	}
+
 	h = deserializeHandshakeMessage(r)
 	c.Write(r)
-	c.receiveClientKeyExchange(h.message)
+	err = c.receiveClientKeyExchange(h.message)
+	if err != nil {
+		return err
+	}
 
 	c.masterSecret = computeMasterSecret(c.preMasterSecret[:], c.clientRandom[:], c.serverRandom[:])
 	c.recordProtocol.establishKeys(c.masterSecret, c.clientRandom, c.serverRandom)
 
 	r, err = c.readRecord(CHANGE_CIPHER_SPEC)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	//Reception of [ChangeCipherSpec] causes the receiver to instruct the record
@@ -308,15 +322,21 @@ func (c *handshakeServer) doHandshake() error {
 
 	r, err = c.readRecord(HANDSHAKE) //finished
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	h = deserializeHandshakeMessage(r)
 	c.Write(r)
-	c.receiveFinished(h.message) //???
+	err = c.receiveFinished(h.message) //???
+	if err != nil {
+		return err
+	}
 
-	fmt.Println("server (changeCipherSpec) ->")
-	c.writeRecord(CHANGE_CIPHER_SPEC, []byte{1})
+	//fmt.Println("server (changeCipherSpec) ->")
+	err = c.writeRecord(CHANGE_CIPHER_SPEC, []byte{1})
+	if err != nil {
+		return err
+	}
 
 	//Immediately after sending [ChangeCipherSpec], the sender MUST instruct the
 	//record layer to make the write pending state the write active state.
@@ -324,10 +344,13 @@ func (c *handshakeServer) doHandshake() error {
 
 	m, err = c.sendFinished()
 	if err != nil {
-		panic(err)
+		return err
 	}
-	fmt.Println("server (finished) ->")
-	c.writeRecord(HANDSHAKE, m)
+	//fmt.Println("server (finished) ->")
+	err = c.writeRecord(HANDSHAKE, m)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

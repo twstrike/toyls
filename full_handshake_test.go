@@ -2,6 +2,7 @@ package toyls
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
 
 	. "gopkg.in/check.v1"
@@ -66,17 +67,24 @@ func (s *ToySuite) TestFullHandshakeNew(c *C) {
 	c.Assert(err, IsNil)
 	server.handshaker.(*handshakeServer).Certificate = cert
 
+	roots := x509.NewCertPool()
+	ok := roots.AppendCertsFromPEM([]byte(rsaCertPEM))
+	c.Assert(ok, Equals, true)
+	client.handshaker.(*handshakeClient).Config.RootCAs = roots
+
 	pipeHandshakers(client.handshaker, server.handshaker)
 
-	ok := make(chan bool, 0)
+	done := make(chan bool, 0)
 	go func() {
-		server.doHandshake()
-		ok <- true
+		err := server.doHandshake()
+		c.Assert(err, IsNil)
+		done <- true
 	}()
 
-	client.doHandshake()
+	err = client.doHandshake()
 	c.Assert(err, IsNil)
-	<-ok
+	c.Assert(err, IsNil)
+	<-done
 
 	//You can start to exchange encrypted data
 }

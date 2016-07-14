@@ -183,19 +183,25 @@ func (s *ToySuite) TestConnBlockMacAndEncrypt(c *C) {
 
 func (s *ToySuite) TestConnFragment(c *C) {
 	conn := NewConn(CLIENT)
-	conn.SetChunkSize(uint16(0x3000))
-	content := [0x5000]byte{}
+	fragmentLen := 0x10
+	conn.SetChunkSize(uint16(fragmentLen))
+
+	content := []byte{
+		0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
+		0x11, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
+	}
+
 	plainText, in, _ := conn.fragment(HANDSHAKE, VersionTLS12, content[:])
 	c.Assert(plainText.contentType, Equals, HANDSHAKE)
 	c.Assert(plainText.version, Equals, VersionTLS12)
-	c.Assert(plainText.length, Equals, uint16(0x3000))
-	c.Assert(len(plainText.fragment), Equals, int(0x3000))
+	c.Assert(plainText.length, Equals, uint16(fragmentLen))
+	c.Assert(plainText.fragment, DeepEquals, content[0:fragmentLen])
 
 	plainText, in, _ = conn.fragment(HANDSHAKE, VersionTLS12, in)
 	c.Assert(plainText.contentType, Equals, HANDSHAKE)
 	c.Assert(plainText.version, Equals, VersionTLS12)
-	c.Assert(plainText.length, Equals, uint16(0x2000))
-	c.Assert(len(plainText.fragment), Equals, int(0x2000))
+	c.Assert(plainText.length, Equals, uint16(fragmentLen))
+	c.Assert(plainText.fragment, DeepEquals, content[fragmentLen:])
 }
 
 type mockConnIOReaderWriter struct {

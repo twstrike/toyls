@@ -11,7 +11,7 @@ import (
 )
 
 type handshaker interface {
-	doHandshake()
+	doHandshake() error
 	setRecordProtocol(recordProtocol)
 }
 

@@ -233,7 +233,7 @@ func deserializeCertificate(c []byte) (*certificateBody, error) {
 func serializeCertificate(c *certificateBody) ([]byte, error) {
 	certListBody := make([]byte, 0, 0xffffff) // 2^24-1 is maximim length
 	for _, ci := range c.certificateList {
-		if uint32(len(ci)) > uint32(math.Pow(2, 24) - 1) {
+		if uint32(len(ci)) > uint32(math.Pow(2, 24)-1) {
 			return nil, errors.New("A certificate in the list has exceeded the size limiet of 2^24-1")
 		}
 		certificateLen := writeBytesFromUint24(uint32(len(ci)))
@@ -247,7 +247,7 @@ func serializeCertificate(c *certificateBody) ([]byte, error) {
 	return cert, nil
 }
 
-func (c *handshakeServer) doHandshake() {
+func (c *handshakeServer) doHandshake() error {
 	r, err := c.readRecord(HANDSHAKE)
 	if err != nil {
 		panic(err)
@@ -328,6 +328,8 @@ func (c *handshakeServer) doHandshake() {
 	}
 	fmt.Println("server (finished) ->")
 	c.writeRecord(HANDSHAKE, m)
+
+	return nil
 }
 
 func (c *handshakeServer) setRecordProtocol(r recordProtocol) {

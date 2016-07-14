@@ -219,7 +219,7 @@ func serializeClientHello(h *clientHelloBody) ([]byte, error) {
 }
 
 //Client initiates the handshake
-func (c *handshakeClient) doHandshake() {
+func (c *handshakeClient) doHandshake() error {
 	//XXX Where should we handle the helloRequest?
 	m, err := c.sendClientHello()
 	if err != nil {
@@ -289,6 +289,8 @@ func (c *handshakeClient) doHandshake() {
 	}
 	h = deserializeHandshakeMessage(r)
 	//TODO: do something about the finished
+
+	return nil
 }
 
 func (c *handshakeClient) setRecordProtocol(r recordProtocol) {

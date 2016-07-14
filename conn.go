@@ -102,16 +102,21 @@ func NewConn(entity connectionEnd) *Conn {
 	return &conn
 }
 
-func (c *Conn) Handshake() {
+func (c *Conn) Handshake() error {
 	c.handshake.Lock()
 	defer c.handshake.Unlock()
 
 	if c.handshake.finished {
-		return
+		return nil
 	}
 
-	c.doHandshake()
+	err := c.doHandshake()
+	if err != nil {
+		return err
+	}
+
 	c.handshake.finished = true
+	return nil
 }
 
 func (c *Conn) SetChunkSize(chunkSize uint16) {
@@ -130,7 +135,10 @@ func (c *Conn) SetReadDeadline(t time.Time) error {
 }
 
 func (c *Conn) Read(b []byte) (n int, err error) {
-	c.Handshake()
+	err = c.Handshake()
+	if err != nil {
+		return
+	}
 
 	n = 0
 	for {
@@ -156,7 +164,10 @@ func (c *Conn) SetWriteDeadline(t time.Time) error {
 }
 
 func (c *Conn) Write(b []byte) (n int, err error) {
-	c.Handshake()
+	err = c.Handshake()
+	if err != nil {
+		return
+	}
 
 	if err := c.writeRecord(APPLICATION_DATA, b); err != nil {
 		return len(b), err

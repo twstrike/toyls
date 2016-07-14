@@ -290,7 +290,8 @@ func (c *Conn) handleCipherText(cipherText TLSCiphertext) (TLSCompressed, error)
 }
 
 func (c *GenericBlockCipher) padToBlockSize(blockSize int) {
-	payload := append(c.content, c.MAC...)
+	payload := append([]byte{}, c.content...)
+	payload = append(payload, c.MAC...)
 	overrun := len(payload) % blockSize
 	c.padding_length = uint8(blockSize-overrun) - 1
 	c.padding = make([]byte, c.padding_length)

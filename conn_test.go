@@ -2,6 +2,8 @@ package toyls
 
 import (
 	"io"
+	"net"
+	"time"
 
 	. "gopkg.in/check.v1"
 )
@@ -181,6 +183,107 @@ func (s *ToySuite) TestConnBlockMacAndEncrypt(c *C) {
 	c.Assert(compressed.fragment, DeepEquals, expected.fragment)
 }
 
+func (s *ToySuite) TestConnReadWriteBigText(c *C) {
+	client, server := dummyClientAndServer()
+	rawConn := &mockConnIOReaderWriter{}
+	client.rawConn = rawConn
+	server.rawConn = rawConn
+
+	sent := []byte(`
+	When to the sessions of sweet silent thought
+	I summon up remembrance of things past,
+	I sigh the lack of many a thing I sought,
+	And with old woes new wail my dear times’ waste:
+	Then can I drown an eye, unus’d to flow,
+	For precious friends hid in death’s dateless night.
+	And weep afresh love’s long-since cancell’d woe,
+	And moan the expense of many a vanish’d sight.
+	Then can I grieve at grievance foregone,
+	And heavily from woe to woe tell o’er
+	The sad account of fore-bemoaned moan,
+	Which I new pay as if not paid before.
+	But if the while I think on thee, dear friend,
+	All losses are restor’d, and sorrows end.
+	When to the sessions of sweet silent thought
+	I summon up remembrance of things past,
+	I sigh the lack of many a thing I sought,
+	And with old woes new wail my dear times’ waste:
+	Then can I drown an eye, unus’d to flow,
+	For precious friends hid in death’s dateless night.
+	And weep afresh love’s long-since cancell’d woe,
+	And moan the expense of many a vanish’d sight.
+	Then can I grieve at grievance foregone,
+	And heavily from woe to woe tell o’er
+	The sad account of fore-bemoaned moan,
+	Which I new pay as if not paid before.
+	But if the while I think on thee, dear friend,
+	All losses are restor’d, and sorrows end.
+	When to the sessions of sweet silent thought
+	I summon up remembrance of things past,
+	I sigh the lack of many a thing I sought,
+	And with old woes new wail my dear times’ waste:
+	Then can I drown an eye, unus’d to flow,
+	For precious friends hid in death’s dateless night.
+	And weep afresh love’s long-since cancell’d woe,
+	And moan the expense of many a vanish’d sight.
+	Then can I grieve at grievance foregone,
+	And heavily from woe to woe tell o’er
+	The sad account of fore-bemoaned moan,
+	Which I new pay as if not paid before.
+	But if the while I think on thee, dear friend,
+	All losses are restor’d, and sorrows end.
+	When to the sessions of sweet silent thought
+	I summon up remembrance of things past,
+	I sigh the lack of many a thing I sought,
+	And with old woes new wail my dear times’ waste:
+	Then can I drown an eye, unus’d to flow,
+	For precious friends hid in death’s dateless night.
+	And weep afresh love’s long-since cancell’d woe,
+	And moan the expense of many a vanish’d sight.
+	Then can I grieve at grievance foregone,
+	And heavily from woe to woe tell o’er
+	The sad account of fore-bemoaned moan,
+	Which I new pay as if not paid before.
+	But if the while I think on thee, dear friend,
+	All losses are restor’d, and sorrows end.
+	When to the sessions of sweet silent thought
+	I summon up remembrance of things past,
+	I sigh the lack of many a thing I sought,
+	And with old woes new wail my dear times’ waste:
+	Then can I drown an eye, unus’d to flow,
+	For precious friends hid in death’s dateless night.
+	And weep afresh love’s long-since cancell’d woe,
+	And moan the expense of many a vanish’d sight.
+	Then can I grieve at grievance foregone,
+	And heavily from woe to woe tell o’er
+	The sad account of fore-bemoaned moan,
+	Which I new pay as if not paid before.
+	But if the while I think on thee, dear friend,
+	All losses are restor’d, and sorrows end.
+	When to the sessions of sweet silent thought
+	I summon up remembrance of things past,
+	I sigh the lack of many a thing I sought,
+	And with old woes new wail my dear times’ waste:
+	Then can I drown an eye, unus’d to flow,
+	For precious friends hid in death’s dateless night.
+	And weep afresh love’s long-since cancell’d woe,
+	And moan the expense of many a vanish’d sight.
+	Then can I grieve at grievance foregone,
+	And heavily from woe to woe tell o’er
+	The sad account of fore-bemoaned moan,
+	Which I new pay as if not paid before.
+	But if the while I think on thee, dear friend,
+	All losses are restor’d, and sorrows end.
+	`)
+
+	got := make([]byte, len(sent))
+
+	client.SetChunkSize(0x00f0)
+	client.Write(sent)
+	server.Read(got)
+	c.Assert(sent, DeepEquals, got)
+}
+
 func (s *ToySuite) TestConnFragment(c *C) {
 	conn := NewConn(CLIENT)
 	fragmentLen := 0x10
@@ -239,5 +342,25 @@ func (iom *mockConnIOReaderWriter) Write(p []byte) (n int, err error) {
 
 func (iom *mockConnIOReaderWriter) Close() error {
 	iom.calledClose++
+	return nil
+}
+
+func (iom *mockConnIOReaderWriter) LocalAddr() net.Addr {
+	return nil
+}
+
+func (iom *mockConnIOReaderWriter) RemoteAddr() net.Addr {
+	return nil
+}
+
+func (iom *mockConnIOReaderWriter) SetDeadline(time.Time) error {
+	return nil
+}
+
+func (iom *mockConnIOReaderWriter) SetReadDeadline(time.Time) error {
+	return nil
+}
+
+func (iom *mockConnIOReaderWriter) SetWriteDeadline(time.Time) error {
 	return nil
 }

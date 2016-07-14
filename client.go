@@ -223,60 +223,87 @@ func (c *handshakeClient) doHandshake() error {
 	//XXX Where should we handle the helloRequest?
 	m, err := c.sendClientHello()
 	if err != nil {
-		fmt.Println(err.Error())
+		return err
 	}
-	fmt.Println("client (clientHello) ->")
+
+	//fmt.Println("client (clientHello) ->")
 	c.Write(m)
-	c.writeRecord(HANDSHAKE, m)
+	err = c.writeRecord(HANDSHAKE, m)
+	if err != nil {
+		return err
+	}
 
 	r, err := c.readRecord(HANDSHAKE)
 	if err != nil {
-		fmt.Println(err.Error())
+		return err
 	}
+
 	h := deserializeHandshakeMessage(r)
 	c.Write(r)
-	c.receiveServerHello(h.message)
+	err = c.receiveServerHello(h.message)
+	if err != nil {
+		return err
+	}
 
 	r, err = c.readRecord(HANDSHAKE)
 	if err != nil {
-		fmt.Println(err.Error())
+		return err
 	}
+
 	h = deserializeHandshakeMessage(r)
 	c.Write(r)
-	c.receiveCertificate(h.message)
+
+	err = c.receiveCertificate(h.message)
+	if err != nil {
+		return err
+	}
 
 	r, err = c.readRecord(HANDSHAKE)
 	if err != nil {
-		fmt.Println(err.Error())
+		return err
 	}
+
 	h = deserializeHandshakeMessage(r)
 	c.Write(r)
 	toSend, err := c.receiveServerHelloDone(h.message)
 	if err != nil {
-		fmt.Println(err.Error())
+		return err
 	}
 
-	fmt.Println("client (clientKeyExchange) ->")
+	//fmt.Println("client (clientKeyExchange) ->")
 	c.Write(toSend[0])
-	c.writeRecord(HANDSHAKE, toSend[0])
+	err = c.writeRecord(HANDSHAKE, toSend[0])
+	if err != nil {
+		return err
+	}
 
 	c.masterSecret = computeMasterSecret(c.preMasterSecret[:], c.clientRandom[:], c.serverRandom[:])
 	c.recordProtocol.establishKeys(c.masterSecret, c.clientRandom, c.serverRandom)
 
-	fmt.Println("client (changeCipherSpec) ->")
-	c.writeRecord(CHANGE_CIPHER_SPEC, []byte{1})
+	//fmt.Println("client (changeCipherSpec) ->")
+	err = c.writeRecord(CHANGE_CIPHER_SPEC, []byte{1})
+	if err != nil {
+		return err
+	}
 
 	//Immediately after sending [ChangeCipherSpec], the sender MUST instruct the
 	//record layer to make the write pending state the write active state.
 	c.recordProtocol.changeWriteCipherSpec()
 
-	m, _ = c.sendFinished()
-	fmt.Println("client (finished) ->")
-	c.writeRecord(HANDSHAKE, m)
+	m, err = c.sendFinished()
+	if err != nil {
+		return err
+	}
+
+	//fmt.Println("client (finished) ->")
+	err = c.writeRecord(HANDSHAKE, m)
+	if err != nil {
+		return err
+	}
 
 	r, err = c.readRecord(CHANGE_CIPHER_SPEC)
 	if err != nil {
-		fmt.Println(err.Error())
+		return err
 	}
 
 	//Reception of [ChangeCipherSpec] causes the receiver to instruct the record
@@ -285,10 +312,11 @@ func (c *handshakeClient) doHandshake() error {
 
 	r, err = c.readRecord(HANDSHAKE)
 	if err != nil {
-		fmt.Println(err.Error())
+		return err
 	}
+
 	h = deserializeHandshakeMessage(r)
-	//TODO: do something about the finished
+	//XXX Check if finished matches what we expected
 
 	return nil
 }

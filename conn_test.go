@@ -8,9 +8,12 @@ import (
 	. "gopkg.in/check.v1"
 )
 
-func dummyClientAndServer() (*Conn, *Conn) {
+func handshakenClientAndServer() (*Conn, *Conn) {
 	connA := NewConn(CLIENT)
 	connB := NewConn(SERVER)
+
+	connA.handshake.finished = true
+	connB.handshake.finished = true
 
 	keys := keysFromMasterSecret(securityParameters{
 		encKeyLength:  32,
@@ -99,7 +102,7 @@ func (s *ToySuite) TestConnHandleStreamCipherText(c *C) {
 }
 
 func (s *ToySuite) TestConnHandleBlockCipherText(c *C) {
-	_, connB := dummyClientAndServer()
+	_, connB := handshakenClientAndServer()
 
 	cipherText := TLSCiphertext{
 		contentType: 0x16,
@@ -163,7 +166,7 @@ func (s *ToySuite) TestConnStreamMacAndEncrypt(c *C) {
 }
 
 func (s *ToySuite) TestConnBlockMacAndEncrypt(c *C) {
-	client, server := dummyClientAndServer()
+	client, server := handshakenClientAndServer()
 	expected := TLSCompressed{
 		contentType: HANDSHAKE,
 		version:     VersionTLS12,
@@ -184,7 +187,7 @@ func (s *ToySuite) TestConnBlockMacAndEncrypt(c *C) {
 }
 
 func (s *ToySuite) TestConnReadWriteBigText(c *C) {
-	client, server := dummyClientAndServer()
+	client, server := handshakenClientAndServer()
 	rawConn := &mockConnIOReaderWriter{}
 	client.rawConn = rawConn
 	server.rawConn = rawConn

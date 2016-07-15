@@ -100,6 +100,7 @@ func NewConn(entity connectionEnd, config *tls.Config) *Conn {
 	case SERVER:
 		conn.handshaker = &handshakeServer{
 			recordProtocol: &conn,
+			ka:             &ecdheKeyAgreement{},
 		}
 	}
 

@@ -80,7 +80,12 @@ type certificateBody struct {
 //implement only one.
 //XXX We are going to implement only RSA key exchange, so this is not necessary (for now)
 //See: "7.4.3.  Server Key Exchange Message" to understand why we dont neeed this now.
-type serverKeyExchangeBody struct{}
+type serverKeyExchangeBody struct {
+	params        []byte
+	hashFunc      byte
+	signatureFunc byte
+	signature     []byte
+}
 
 //XXX We believe this is not mandatory for TLS_RSA_WITH_AES_128_CBC_SHA
 type certificateRequestBody struct{}

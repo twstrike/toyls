@@ -2,6 +2,7 @@ package toyls
 
 import (
 	"flag"
+	"fmt"
 	"net"
 	"time"
 
@@ -24,6 +25,7 @@ func (s *LiveToySuite) SetUpSuite(c *C) {
 }
 
 func (s *LiveToySuite) TestHandshakeAndApplicationData(c *C) {
+	c.Skip("sleep")
 	cert, err := tls.X509KeyPair([]byte(rsaCertPEM), []byte(rsaKeyPEM))
 	c.Assert(err, IsNil)
 	c.Assert(len(cert.Certificate), Equals, 1)
@@ -77,4 +79,26 @@ func (s *LiveToySuite) TestHandshakeAndApplicationData(c *C) {
 	conn.SetReadDeadline(time.Now())
 	reply = make([]byte, 1)
 	conn.Read(reply)
+}
+
+func (s *LiveToySuite) TestHandshakeAndApplicationDataECDHE(c *C) {
+	cert, err := tls.X509KeyPair([]byte(rsaCertPEM), []byte(rsaKeyPEM))
+	c.Assert(err, IsNil)
+	c.Assert(len(cert.Certificate), Equals, 1)
+
+	l, err := net.Listen("tcp", ":12346")
+	c.Assert(err, IsNil)
+
+	conn, err := l.Accept()
+	c.Assert(err, IsNil)
+
+	server := newServer()
+	server.handshaker.(*handshakeServer).Certificate = cert
+	server.rawConn = conn
+	server.doHandshake()
+
+	reply := make([]byte, 12)
+	server.Read(reply)
+	fmt.Println("Server Receive:", string(reply))
+	server.Write([]byte("hello client"))
 }

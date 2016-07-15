@@ -2,9 +2,7 @@ package toyls
 
 import (
 	"bytes"
-	"crypto"
 	"crypto/rand"
-	"crypto/rsa"
 	"crypto/tls"
 	"errors"
 	"math"
@@ -19,6 +17,8 @@ type handshakeServer struct {
 	tls.Certificate
 
 	recordProtocol
+
+	ka *ecdheKeyAgreement
 
 	clientRandom, serverRandom [32]byte
 	preMasterSecret            []byte
@@ -49,9 +49,7 @@ func (s *handshakeServer) receiveClientHello(m []byte) ([][]byte, error) {
 	serverCertificate := s.sendCertificate()
 	s.Write(serverCertificate)
 
-	//IF we need a Server Key Exchange Message,
-	//send it NOW.
-	serverKeyExchange := []byte(nil)
+	serverKeyExchange, err := s.sendServerKeyExchange()
 	s.Write(serverKeyExchange)
 
 	//IF we need a Certificate Request,
@@ -97,7 +95,7 @@ func (s *handshakeServer) checkSupportedVersion(v protocolVersion) (protocolVers
 }
 
 func (s *handshakeServer) checkSupportedCipherSuites(suites []cipherSuite) (cipherSuite, error) {
-	supported := cipherSuite{0x00, 0x2f}
+	supported := cipherSuite{0xc0, 0x13}
 
 	for _, cs := range suites {
 		if cs == supported {
@@ -147,8 +145,10 @@ func (s *handshakeServer) sendCertificate() []byte {
 }
 
 func (s *handshakeServer) sendServerKeyExchange() ([]byte, error) {
-	//Our key exchange method does not send this message. Easy ;)
-	return nil, nil
+	message, _ := serializeServerKeyExchange(s.ka.generateServerKeyExchange(s.Certificate, s.clientRandom, s.serverRandom))
+	return serializeHandshakeMessage(&handshakeMessage{
+		serverKeyExchangeType, message,
+	}), nil
 }
 
 func (s *handshakeServer) sendCertificateRequest() ([]byte, error) {
@@ -166,15 +166,9 @@ func (s *handshakeServer) sendServerHelloDone() ([]byte, error) {
 // func receiveCertificateVerify()
 func (s *handshakeServer) receiveClientKeyExchange(m []byte) error {
 	var err error
-	ciphertext := m[2:] // from the size onward
-	priv, ok := s.Certificate.PrivateKey.(crypto.Decrypter)
-	if !ok {
-		return errors.New("certificate private key does not implement crypto.Decrypter")
-	}
-
-	s.preMasterSecret, err = priv.Decrypt(rand.Reader, ciphertext, &rsa.PKCS1v15DecryptOptions{SessionKeyLen: 48})
+	s.preMasterSecret, err = s.ka.processClientKeyExchange(m)
 	if err != nil {
-		return err
+		panic(err)
 	}
 
 	return nil
@@ -274,6 +268,22 @@ func serializeCertificate(c *certificateBody) ([]byte, error) {
 	return cert, nil
 }
 
+func serializeServerKeyExchange(h *serverKeyExchangeBody) ([]byte, error) {
+	sigAndHashLen := 2
+	key := make([]byte, len(h.params)+sigAndHashLen+2+len(h.signature))
+	copy(key, h.params)
+
+	k := key[len(h.params):]
+	k[0] = h.hashFunc
+	k[1] = h.signatureFunc
+	k = k[2:]
+	k[0] = byte(len(h.signature) >> 8)
+	k[1] = byte(len(h.signature))
+	copy(k[2:], h.signature)
+
+	return key, nil
+}
+
 func (c *handshakeServer) doHandshake() error {
 	r, err := c.readRecord(HANDSHAKE)
 	if err != nil {
@@ -300,8 +310,14 @@ func (c *handshakeServer) doHandshake() error {
 		return err
 	}
 
-	//fmt.Println("server (serverHelloDone) ->")
+	//fmt.Println("server (serverKeyExchange) ->")
 	err = c.writeRecord(HANDSHAKE, toSend[2])
+	if err != nil {
+		return err
+	}
+
+	//fmt.Println("server (serverHelloDone) ->")
+	err = c.writeRecord(HANDSHAKE, toSend[3])
 	if err != nil {
 		return err
 	}

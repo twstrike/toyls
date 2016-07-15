@@ -97,8 +97,7 @@ func (s *LiveToySuite) TestHandshakeAndApplicationDataECDHE(c *C) {
 	server.rawConn = conn
 	server.doHandshake()
 
-	reply := make([]byte, 12)
-	server.Read(reply)
+	reply, err := server.readRecord(APPLICATION_DATA)
 	fmt.Println("Server Receive:", string(reply))
-	server.Write([]byte("hello client"))
+	server.writeRecord(APPLICATION_DATA, []byte("hello client"))
 }
